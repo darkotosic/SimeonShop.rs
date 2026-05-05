@@ -1,6 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.v1 import products
+from app.api.v1.endpoints import products
 from app.core.config import settings
 
 router = APIRouter(prefix=settings.API_PREFIX, tags=["v1"])

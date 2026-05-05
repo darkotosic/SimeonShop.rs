@@ -1,205 +1,121 @@
-# SimeonShop.rs - Enterprise E-Commerce Platform
+# SimeonShop.rs
 
-Modern, scalable monorepo e-commerce platform built with Next.js and FastAPI.
+Enterprise-ready e-commerce monorepo for `simeonshop.rs`.
 
-## 📁 Project Structure
+## Architecture
 
-```
-simeonshop/
-├── apps/
-│   ├── web/              # Next.js frontend application
-│   │   ├── pages/        # React pages and routes
-│   │   ├── components/   # Reusable React components
-│   │   ├── styles/       # Global styles
-│   │   ├── public/       # Static assets
-│   │   ├── package.json  # Frontend dependencies
-│   │   ├── next.config.js
-│   │   ├── tailwind.config.js
-│   │   └── .env.example
-│   │
-│   └── api/              # FastAPI backend application
-│       ├── app/
-│       │   ├── core/     # Configuration, constants, security
-│       │   ├── api/
-│       │   │   └── v1/   # API v1 routes
-│       │   └── main.py   # FastAPI app entry point
-│       ├── requirements.txt
-│       ├── .env.example
-│       └── .gitignore
-│
-├── README.md             # This file
-├── AGENTS.md            # GitHub Actions & Automation
-├── .gitignore           # Git ignore rules
-└── netlify.toml         # Netlify deployment configuration
+- Frontend: Next.js, TypeScript, Tailwind CSS, hosted on Netlify
+- Backend: FastAPI, hosted on Render.com
+- Database target: PostgreSQL on Render.com
+- Admin: protected dashboard under `/admin`
+
+## Project Structure
+
+```txt
+apps/
+  web/
+    app/
+    components/
+    lib/
+    styles/
+  api/
+    app/
+      api/v1/
+      core/
+      main.py
+README.md
+AGENTS.md
+netlify.toml
 ```
 
-## 🚀 Quick Start
-
-### Prerequisites
-- Node.js 18+ and npm
-- Python 3.10+
-- Git
-
-### Frontend Setup
+## Frontend
 
 ```bash
 cd apps/web
-
-# Install dependencies
 npm install
-
-# Configure environment
-cp .env.example .env.local
-
-# Start development server (port 3000)
 npm run dev
 ```
 
-Visit `http://localhost:3000`
+Local URL: `http://localhost:3000`
 
-### Backend Setup
+Required environment:
+
+```env
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+NEXT_PUBLIC_BRAND_NAME=Simeon Shop
+NEXT_PUBLIC_DEFAULT_LOCALE=sr
+```
+
+## Backend
 
 ```bash
 cd apps/api
-
-# Create virtual environment
-python -m venv venv
-
-# Activate virtual environment
-# On Windows:
-venv\Scripts\activate
-# On macOS/Linux:
-source venv/bin/activate
-
-# Install dependencies
+python -m venv .venv
+.venv\Scripts\activate
 pip install -r requirements.txt
-
-# Configure environment
-cp .env.example .env
-
-# Start development server (port 8000)
-python app/main.py
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-Visit `http://localhost:8000/api/docs` (Swagger UI)
+Local API docs: `http://localhost:8000/api/docs`
 
-## 📋 Available Routes
+Required environment:
 
-### Frontend Routes
-- `/` - Homepage
-- `/products` - Products listing
-- `/cart` - Shopping cart
-- `/checkout` - Checkout page
-- `/about` - About page
-- `/contact` - Contact page
-- `/privacy-policy` - Privacy policy
-- `/terms-and-conditions` - Terms and conditions
-- `/admin/login` - Admin login
-- `/admin/dashboard` - Admin dashboard
-
-### Backend API Routes (v1)
-- `GET /api/v1/health` - Health check
-- `GET /api/v1/products` - Get all products
-- `GET /api/v1/products/{id}` - Get product by ID
-- `POST /api/v1/orders` - Create new order
-- `POST /api/v1/admin/login` - Admin login
-- `GET /api/docs` - Swagger documentation
-- `GET /api/redoc` - ReDoc documentation
-
-## 🔧 Configuration
-
-### Frontend Environment Variables
 ```env
-# .env.local
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+APP_ENV=development
+APP_NAME=SimeonShop API
+API_PREFIX=/api/v1
+DATABASE_URL=postgresql://user:password@localhost:5432/simeonshop
+ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8000,http://127.0.0.1:3000
+JWT_SECRET=change-me
 ```
 
-### Backend Environment Variables
-```env
-# .env
-ENVIRONMENT=development
-ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8000
-HOST=0.0.0.0
-PORT=8000
-```
+## Current Routes
 
-## 🎨 Technology Stack
+Frontend:
 
-### Frontend
-- **Next.js 14** - React framework with SSR/SSG
-- **TypeScript** - Type-safe JavaScript
-- **Tailwind CSS** - Utility-first CSS framework
-- **Axios** - HTTP client
+- `/`
+- `/products`
+- `/cart`
+- `/checkout`
+- `/about`
+- `/contact`
+- `/privacy-policy`
+- `/terms-and-conditions`
+- `/admin/login`
+- `/admin/dashboard`
 
-### Backend
-- **FastAPI** - Modern Python web framework
-- **Uvicorn** - ASGI server
-- **Pydantic** - Data validation
-- **Python-dotenv** - Environment management
+Backend:
 
-## 📦 Available Commands
+- `GET /api/v1/health`
+- `GET /api/v1/products`
+- `POST /api/v1/orders`
 
-### Frontend
+## Quality Gates
+
+Frontend:
+
 ```bash
-npm run dev          # Start development server
-npm run build        # Build for production
-npm start            # Start production server
-npm run lint         # Run linter
-npm run type-check   # Type checking
-```
-
-### Backend
-```bash
-python app/main.py                    # Start server (development)
-uvicorn app.main:app --reload        # Start with auto-reload
-uvicorn app.main:app --host 0.0.0.0  # Bind to all interfaces
-```
-
-## 🚀 Deployment
-
-### Frontend - Netlify
-```bash
-# Configuration in netlify.toml
+cd apps/web
+npm run lint
+npm run type-check
 npm run build
 ```
 
-### Backend - Heroku/Railway/Render
+Backend:
+
 ```bash
-pip install -r requirements.txt
-python app/main.py
+cd apps/api
+pytest
 ```
 
-## 📝 API Documentation
+## Deployment
 
-Interactive API documentation available at:
-- Swagger UI: `http://localhost:8000/api/docs`
-- ReDoc: `http://localhost:8000/api/redoc`
+Netlify uses `netlify.toml` with `apps/web` as the build base.
 
-## 🔐 Security
+Render web service:
 
-- CORS properly configured for localhost development
-- Environment variables for sensitive configuration
-- TypeScript for frontend type safety
-- Pydantic validation for backend data
-
-## 📄 License
-
-MIT License - See LICENSE file for details
-
-## 👥 Contributing
-
-1. Create a feature branch
-2. Make your changes
-3. Submit a pull request
-
-## 📞 Support
-
-For issues and questions:
-- Email: support@simeonshop.rs
-- GitHub Issues: [Create an issue]
-
----
-
-**Status**: Active Development
-**Last Updated**: January 2024
-Ffrontend + backend (admin) websites
+```bash
+pip install -r requirements.txt
+uvicorn app.main:app --host 0.0.0.0 --port $PORT
+```

@@ -1,218 +1,131 @@
-# AGENTS.md - GitHub Automation & CI/CD
+# AGENTS.md - SimeonShop.rs
 
-This document outlines automation, GitHub Actions workflows, and development processes for SimeonShop.rs.
+## Mission
 
-## 🤖 GitHub Actions Workflows
+Build a production-ready e-commerce platform for `simeonshop.rs`.
 
-### Planned Workflows
+The system consists of:
 
-#### 1. Frontend CI/CD (`.github/workflows/frontend-ci.yml`)
-```yaml
-# Triggers: Push to main/develop, Pull Requests
-# Jobs:
-# - Install dependencies
-# - Run linting
-# - Type checking
-# - Build verification
-# - (Optional) Deploy to Netlify preview
-```
+- public storefront
+- protected admin dashboard
+- backend API
+- PostgreSQL database
 
-#### 2. Backend CI/CD (`.github/workflows/backend-ci.yml`)
-```yaml
-# Triggers: Push to main/develop, Pull Requests
-# Jobs:
-# - Set up Python environment
-# - Install dependencies
-# - Run linting (flake8, black)
-# - Type checking (mypy)
-# - Test suite
-# - (Optional) Deploy to production
-```
+## Core Principles
 
-#### 3. Integration Tests (`.github/workflows/integration-tests.yml`)
-```yaml
-# Triggers: On merged PRs
-# Jobs:
-# - Start backend server
-# - Start frontend build
-# - Run integration tests
-# - Test API connectivity
-```
+1. Production safety first.
+2. No hardcoded secrets.
+3. Use environment variables for external URLs and credentials.
+4. Keep frontend and backend decoupled through API contracts.
+5. Maintain clean, typed, scalable code.
+6. Every feature must be mobile-friendly.
+7. Every public page must be SEO-ready.
+8. Admin routes must be protected.
+9. Checkout must never lose customer order data.
+10. Avoid unnecessary dependencies.
 
-## 📋 Development Workflow
+## Frontend Requirements
 
-### 1. Feature Development
+Use:
+
+- Next.js App Router
+- TypeScript
+- Tailwind CSS
+- clean component architecture
+- reusable API client
+- responsive layout
+- SEO metadata
+- product listing
+- product detail
+- cart
+- checkout
+- legal pages
+- admin dashboard
+
+## Backend Requirements
+
+Use:
+
+- FastAPI
+- PostgreSQL
+- SQLAlchemy
+- Alembic
+- Pydantic
+- JWT authentication
+- CORS configuration
+- structured API routes
+
+## Required API Groups
+
+- health
+- auth
+- products
+- categories
+- orders
+- admin/products
+- admin/categories
+- admin/orders
+- admin/settings
+
+## Database Requirements
+
+Create models for:
+
+- users
+- products
+- categories
+- product_images
+- product_variants
+- orders
+- order_items
+- store_settings
+
+## Deployment Targets
+
+Frontend:
+
+- Netlify
+- domain: `simeonshop.rs`
+
+Backend:
+
+- Render.com
+- PostgreSQL on Render
+
+## Quality Gates
+
+Before completing production tasks, run:
+
 ```bash
-# Create feature branch
-git checkout -b feature/feature-name
-
-# Work on your feature
-# Commit regularly with meaningful messages
-
-git push origin feature/feature-name
+cd apps/web
+npm run lint
+npm run build
 ```
 
-### 2. Pull Request Process
-1. Create PR with clear description
-2. Link related issues
-3. Ensure all checks pass
-4. Request review from maintainers
-5. Merge when approved
-
-### 3. Commit Message Convention
-```
-type(scope): subject
-
-- feat: new feature
-- fix: bug fix
-- docs: documentation
-- style: formatting changes
-- refactor: code restructuring
-- test: test additions
-- chore: maintenance
-
-Example:
-feat(products): add product filtering
-fix(cart): fix quantity calculation
-docs(readme): update setup instructions
-```
-
-## 🔄 Deployment Pipeline
-
-### Frontend Deployment (Netlify)
-1. **Trigger**: Push to `main` branch
-2. **Build**: `npm run build`
-3. **Deploy**: Automatic to production
-4. **Preview**: Pull requests get automatic previews
-
-### Backend Deployment
-1. **Trigger**: Push to `main` branch
-2. **Build**: Install dependencies
-3. **Test**: Run test suite
-4. **Deploy**: To production environment (Heroku/Railway/Render)
-
-## 🧪 Testing Strategy
-
-### Frontend Tests
 ```bash
-# Unit tests (Jest - planned)
-npm run test
-
-# E2E tests (Playwright - planned)
-npm run test:e2e
-```
-
-### Backend Tests
-```bash
-# Unit tests (pytest - planned)
+cd apps/api
 pytest
-
-# Coverage report
-pytest --cov=app
 ```
 
-## 📊 Code Quality Standards
+If tests are not implemented yet, add minimal smoke tests for API health and core models.
 
-### Frontend
-- TypeScript strict mode enabled
-- ESLint configuration
-- Prettier for formatting
-- 80% code coverage target
+## Do Not
 
-### Backend
-- Python 3.10+
-- Black for code formatting
-- Flake8 for linting
-- MyPy for type checking
-- 85% code coverage target
+- Do not hardcode API URLs.
+- Do not expose JWT secrets.
+- Do not make admin routes public.
+- Do not store passwords in plain text.
+- Do not break mobile layout.
+- Do not remove existing working functionality without reason.
+- Do not use fake static fallback data as final production source of truth.
 
-## 🔐 Environment Secrets
+## Completion Format
 
-### Required GitHub Secrets
-```
-# Frontend
-NETLIFY_SITE_ID
-NETLIFY_AUTH_TOKEN
+For every completed task, provide:
 
-# Backend
-DATABASE_URL
-PROD_API_SECRET_KEY
-SENTRY_DSN
-```
-
-## 📈 Performance Monitoring
-
-### Frontend
-- Lighthouse CI integration (planned)
-- Performance budgets
-- Bundle analysis
-
-### Backend
-- Error tracking (Sentry - planned)
-- Performance monitoring (New Relic - planned)
-- API response time monitoring
-
-## 🔄 Continuous Integration Checklist
-
-- [ ] All tests passing
-- [ ] Type checking passing
-- [ ] Linting passing
-- [ ] No console errors
-- [ ] Documentation updated
-- [ ] Breaking changes documented
-- [ ] Security review completed
-
-## 📚 Documentation Standards
-
-- README.md in each app directory
-- Inline code comments for complex logic
-- API documentation via Swagger/ReDoc
-- Architecture decisions in ADRs (Architectural Decision Records)
-
-## 🚀 Release Process
-
-1. **Version Bump**: Update version in package.json and setup.py
-2. **Changelog**: Update CHANGELOG.md
-3. **Tag**: Create git tag (v1.0.0)
-4. **Release Notes**: Create GitHub release with notes
-5. **Deployment**: Automated via GitHub Actions
-
-## 🐛 Bug Reporting
-
-Report bugs via GitHub Issues with:
-- Clear title
-- Detailed description
-- Steps to reproduce
-- Expected vs actual behavior
-- Screenshots/logs if applicable
-- Environment info (OS, browser, Python version)
-
-## 💡 Feature Requests
-
-Submit feature requests via GitHub Issues with:
-- Clear title starting with "Feature:"
-- Detailed description
-- Use cases/benefits
-- Proposed implementation (optional)
-
-## 📞 Communication
-
-- Issues: GitHub Issues
-- Discussions: GitHub Discussions (planned)
-- Real-time: Slack/Discord (planned)
-- Email: dev@simeonshop.rs
-
-## 🎯 Future Automation Goals
-
-- [ ] Automated database migrations
-- [ ] Dependency update automation (Dependabot)
-- [ ] Security scanning (CodeQL, OWASP)
-- [ ] Performance regression detection
-- [ ] Load testing automation
-- [ ] Documentation auto-generation
-- [ ] Changelog generation from commits
-
----
-
-**Last Updated**: January 2024
-**Maintained by**: SimeonShop.rs Development Team
+- Summary of changes
+- Files changed
+- Commands run
+- Environment variables needed
+- Manual QA checklist
+- Next recommended step

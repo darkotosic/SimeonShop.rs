@@ -1,5 +1,6 @@
 from fastapi import APIRouter
 
+from app.api.v1 import products
 from app.core.config import settings
 
 router = APIRouter(prefix=settings.API_PREFIX, tags=["v1"])
@@ -16,26 +17,6 @@ async def health_check():
     }
 
 
-@router.get("/products")
-async def get_products(skip: int = 0, limit: int = 10):
-    """Temporary public products endpoint for frontend integration smoke tests."""
-    return {
-        "items": [
-            {
-                "id": index,
-                "name": f"Product {index}",
-                "slug": f"product-{index}",
-                "price": index * 1200,
-                "description": "High-quality product",
-            }
-            for index in range(skip + 1, skip + limit + 1)
-        ],
-        "total": 100,
-        "skip": skip,
-        "limit": limit,
-    }
-
-
 @router.post("/orders")
 async def create_order():
     """Temporary order endpoint until the database model is added."""
@@ -43,3 +24,6 @@ async def create_order():
         "order_number": "SIM-000001",
         "status": "new",
     }
+
+
+router.include_router(products.router, prefix="/products", tags=["Products"])

@@ -5,6 +5,7 @@ from app.api.v1.router import router as v1_router
 from app.core.config import settings
 from app.db.base import Base
 from app.db.session import engine
+import app.models  # IMPORTANT
 
 app = FastAPI(
     title=settings.APP_NAME,

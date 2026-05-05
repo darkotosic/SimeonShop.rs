@@ -1,43 +1,64 @@
-from typing import List
+import json
+from functools import lru_cache
+from typing import Any
 
-from pydantic import field_validator
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """Application settings loaded from environment variables."""
-
     API_PREFIX: str = "/api/v1"
     APP_NAME: str = "SimeonShop API"
     APP_ENV: str = "development"
-    PROJECT_VERSION: str = "0.1.0"
+    PROJECT_VERSION: str = "0.2.0"
 
     HOST: str = "0.0.0.0"
     PORT: int = 8000
 
-    ALLOWED_ORIGINS: List[str] = [
-        "http://localhost:3000",
-        "http://localhost:8000",
-        "http://127.0.0.1:3000",
-    ]
+    ALLOWED_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
     FRONTEND_URL: str = "http://localhost:3000"
 
     DATABASE_URL: str = "postgresql://user:password@localhost:5432/simeonshop"
-    JWT_SECRET: str = "change-me"
+
+    JWT_SECRET: str = "change-me-in-production"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     ADMIN_EMAIL: str = "admin@simeonshop.rs"
 
-    @field_validator("ALLOWED_ORIGINS", mode="before")
-    @classmethod
-    def assemble_allowed_origins(cls, value: str | List[str]) -> List[str]:
-        if isinstance(value, str):
-            return [origin.strip() for origin in value.split(",") if origin.strip()]
-        return value
+    RATE_LIMIT_DEFAULT: str = "120/minute"
+    RATE_LIMIT_AUTH: str = "10/minute"
+    LOG_LEVEL: str = "INFO"
 
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        case_sensitive=True,
+        extra="ignore",
+    )
+
+    @property
+    def allowed_origins_list(self) -> list[str]:
+        value = self.ALLOWED_ORIGINS.strip()
+        if not value:
+            return []
+
+        if value.startswith("["):
+            parsed: Any = json.loads(value)
+            if not isinstance(parsed, list):
+                raise ValueError("ALLOWED_ORIGINS JSON value must be a list.")
+            return [str(origin).strip() for origin in parsed if str(origin).strip()]
+
+        return [origin.strip() for origin in value.split(",") if origin.strip()]
+
+    def validate_runtime_security(self) -> None:
+        if self.APP_ENV.lower() == "production":
+            if self.JWT_SECRET in {"change-me", "change-me-in-production", ""}:
+                raise RuntimeError("JWT_SECRET must be changed in production.")
+            if "*" in self.allowed_origins_list:
+                raise RuntimeError("ALLOWED_ORIGINS cannot contain '*' in production.")
 
 
-settings = Settings()
+@lru_cache
+def get_settings() -> Settings:
+    return Settings()
+
+
+settings = get_settings()

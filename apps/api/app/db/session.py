@@ -3,7 +3,17 @@ from sqlalchemy.orm import sessionmaker
 
 from app.core.config import settings
 
-engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True)
+
+def normalize_database_url(database_url: str) -> str:
+    if database_url.startswith("postgres://"):
+        return database_url.replace("postgres://", "postgresql://", 1)
+    return database_url
+
+
+engine = create_engine(
+    normalize_database_url(settings.DATABASE_URL),
+    pool_pre_ping=True,
+)
 
 SessionLocal = sessionmaker(
     autocommit=False,

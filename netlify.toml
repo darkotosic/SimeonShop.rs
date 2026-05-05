@@ -1,0 +1,55 @@
+# Netlify configuration for SimeonShop.rs frontend deployment
+
+[build]
+# Directory to deploy
+publish = "apps/web/.next"
+# Build command
+command = "cd apps/web && npm install && npm run build"
+
+[build.environment]
+# Node version
+NODE_VERSION = "18"
+# Next.js environment
+NEXT_PUBLIC_API_BASE_URL = "https://api.simeonshop.rs"
+
+[context.production]
+command = "cd apps/web && npm install && npm run build"
+environment = { NEXT_PUBLIC_API_BASE_URL = "https://api.simeonshop.rs" }
+
+[context.deploy-preview]
+command = "cd apps/web && npm install && npm run build"
+environment = { NEXT_PUBLIC_API_BASE_URL = "https://api-preview.simeonshop.rs" }
+
+[context.branch-deploy]
+command = "cd apps/web && npm install && npm run build"
+environment = { NEXT_PUBLIC_API_BASE_URL = "https://api-staging.simeonshop.rs" }
+
+# Redirect all non-asset requests to index.html for SPA routing
+[[redirects]]
+from = "/*"
+to = "/index.html"
+status = 200
+
+# Cache headers
+[[headers]]
+for = "/*"
+[headers.values]
+Cache-Control = "max-age=0, must-revalidate"
+
+[[headers]]
+for = "/_next/static/*"
+[headers.values]
+Cache-Control = "max-age=31536000, immutable"
+
+# Security headers
+[[headers]]
+for = "/*"
+[headers.values]
+X-Content-Type-Options = "nosniff"
+X-Frame-Options = "DENY"
+X-XSS-Protection = "1; mode=block"
+Referrer-Policy = "strict-origin-when-cross-origin"
+
+# Netlify badge
+[comments]
+enabled = true

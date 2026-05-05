@@ -1,0 +1,45 @@
+version: '3.8'
+
+services:
+  # Frontend service
+  frontend:
+    container_name: simeonshop-web
+    build:
+      context: ./apps/web
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+      - NODE_ENV=development
+    volumes:
+      - ./apps/web:/app
+      - /app/node_modules
+    command: npm run dev
+    depends_on:
+      - backend
+    networks:
+      - simeonshop-network
+
+  # Backend service
+  backend:
+    container_name: simeonshop-api
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - ENVIRONMENT=development
+      - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8000
+      - HOST=0.0.0.0
+      - PORT=8000
+    volumes:
+      - ./apps/api:/app
+    command: python app/main.py
+    networks:
+      - simeonshop-network
+
+networks:
+  simeonshop-network:
+    driver: bridge

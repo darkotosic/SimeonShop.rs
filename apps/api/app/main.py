@@ -3,9 +3,6 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.v1.router import router as v1_router
 from app.core.config import settings
-from app.db.base import Base
-from app.db.session import engine
-import app.models  # IMPORTANT
 
 app = FastAPI(
     title=settings.APP_NAME,
@@ -14,15 +11,15 @@ app = FastAPI(
     openapi_url="/api/openapi.json",
 )
 
+settings.validate_runtime_security()
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.ALLOWED_ORIGINS,
+    allow_origins=settings.allowed_origins_list,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Request-ID"],
 )
-
-Base.metadata.create_all(bind=engine)
 
 app.include_router(v1_router)
 

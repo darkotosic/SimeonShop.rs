@@ -1,23 +1,17 @@
-# Backend Dockerfile
-FROM python:3.10-slim
+FROM python:3.11-slim
 
 WORKDIR /app
 
-# Copy requirements
+ENV PYTHONUNBUFFERED=1
+ENV PYTHONPATH=/app
+
 COPY requirements.txt .
 
-# Install dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
 COPY . .
 
-# Expose port
 EXPOSE 8000
 
-# Environment variables
-ENV PYTHONUNBUFFERED=1
-ENV ENVIRONMENT=development
-
-# Start server
-CMD ["python", "app/main.py"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

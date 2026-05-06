@@ -1,29 +1,27 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 
-from app.api.v1.endpoints import products
+from app.api.deps import get_db
+from app.api.v1.endpoints import auth, cart, orders, products
 from app.core.config import settings
 
 router = APIRouter(prefix=settings.API_PREFIX, tags=["v1"])
 
 
 @router.get("/health")
-async def health_check():
-    """Health check endpoint."""
+def health_check(db: Session = Depends(get_db)):
+    db.execute(text("SELECT 1"))
     return {
         "status": "ok",
         "message": "SimeonShop.rs API is running",
         "version": settings.PROJECT_VERSION,
         "environment": settings.APP_ENV,
+        "database": "ok",
     }
 
 
-@router.post("/orders")
-async def create_order():
-    """Temporary order endpoint until the database model is added."""
-    return {
-        "order_number": "SIM-000001",
-        "status": "new",
-    }
-
-
+router.include_router(auth.router, prefix="/auth", tags=["Auth"])
 router.include_router(products.router, prefix="/products", tags=["Products"])
+router.include_router(cart.router, prefix="/cart", tags=["Cart"])
+router.include_router(orders.router, prefix="/orders", tags=["Orders"])

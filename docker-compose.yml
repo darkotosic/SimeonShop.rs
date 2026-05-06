@@ -1,7 +1,51 @@
 version: '3.8'
 
 services:
-  # Frontend service
+  postgres:
+    image: postgres:16-alpine
+    container_name: simeonshop-postgres
+    environment:
+      POSTGRES_DB: simeonshop
+      POSTGRES_USER: simeonshop
+      POSTGRES_PASSWORD: simeonshop
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - simeonshop-network
+
+  backend:
+    container_name: simeonshop-api
+    build:
+      context: ./apps/api
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      APP_ENV: development
+      APP_NAME: SimeonShop API
+      PROJECT_VERSION: 0.2.0
+      API_PREFIX: /api/v1
+      ALLOWED_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+      FRONTEND_URL: http://localhost:3000
+      DATABASE_URL: postgresql://simeonshop:simeonshop@postgres:5432/simeonshop
+      JWT_SECRET: local-dev-secret-change-before-production
+      JWT_ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 1440
+      ADMIN_EMAIL: admin@simeonshop.rs
+      RATE_LIMIT_DEFAULT: 120/minute
+      RATE_LIMIT_AUTH: 10/minute
+      LOG_LEVEL: INFO
+      HOST: 0.0.0.0
+      PORT: 8000
+    volumes:
+      - ./apps/api:/app
+    depends_on:
+      - postgres
+    networks:
+      - simeonshop-network
+
   frontend:
     container_name: simeonshop-web
     build:
@@ -10,8 +54,8 @@ services:
     ports:
       - "3000:3000"
     environment:
-      - NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
-      - NODE_ENV=development
+      NEXT_PUBLIC_API_BASE_URL: http://localhost:8000
+      NODE_ENV: development
     volumes:
       - ./apps/web:/app
       - /app/node_modules
@@ -21,24 +65,8 @@ services:
     networks:
       - simeonshop-network
 
-  # Backend service
-  backend:
-    container_name: simeonshop-api
-    build:
-      context: ./apps/api
-      dockerfile: Dockerfile
-    ports:
-      - "8000:8000"
-    environment:
-      - ENVIRONMENT=development
-      - ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8000
-      - HOST=0.0.0.0
-      - PORT=8000
-    volumes:
-      - ./apps/api:/app
-    command: python app/main.py
-    networks:
-      - simeonshop-network
+volumes:
+  postgres_data:
 
 networks:
   simeonshop-network:

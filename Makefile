@@ -49,7 +49,7 @@ dev:
 	@echo "Press Ctrl+C to stop"
 	@echo ""
 	@cd apps/web && npm run dev & \
-	cd apps/api && python app/main.py
+	cd apps/api && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 frontend-dev:
 	@echo "🚀 Starting frontend development server..."
@@ -60,7 +60,7 @@ backend-dev:
 	@echo "🚀 Starting backend development server..."
 	@echo "API running on: http://localhost:8000"
 	@echo "API Docs at:    http://localhost:8000/api/docs"
-	cd apps/api && python app/main.py
+	cd apps/api && uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 # Build targets
 build: frontend-build

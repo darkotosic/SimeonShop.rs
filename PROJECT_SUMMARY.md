@@ -192,17 +192,17 @@ docker-compose down            # Stop sve servise
 ## 🔧 Technology Stack
 
 ### Frontend
-- **Next.js 14** - React framework
+- **Next.js 16** - React framework
 - **TypeScript 5** - Type-safe JavaScript
 - **Tailwind CSS 3.4** - Utility CSS
-- **React 18** - UI library
-- **Axios** - HTTP client
+- **React 19** - UI library
+- **Fetch API** - HTTP client through typed reusable API helpers
 
 ### Backend
 - **FastAPI 0.104.1** - Web framework
 - **Uvicorn 0.24.0** - ASGI server
 - **Pydantic 2.5.0** - Data validation
-- **Python 3.10+** - Language
+- **Python 3.12** - Language
 
 ### Development Tools
 - **Node.js 18+** - JavaScript runtime
@@ -235,9 +235,8 @@ docker-compose down            # Stop sve servise
 - **Traditional servers** (AWS, DigitalOcean, Linode)
 
 ### Backend
-- **Railway**
-- **Heroku**
-- **DigitalOcean App Platform**
+- **Render** (primary)
+- **Render PostgreSQL** (managed production database)
 - **Traditional servers** (Docker)
 
 ## 📋 Port Configuration

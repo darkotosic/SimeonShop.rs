@@ -5,6 +5,40 @@ from pydantic import BaseModel, ConfigDict, Field, computed_field
 from app.schemas.category import CategoryRead
 
 
+
+
+class ProductImageCreate(BaseModel):
+    image_url: str = Field(max_length=1000)
+    alt_text: str | None = Field(default=None, max_length=255)
+    sort_order: int = 0
+    is_primary: bool = False
+
+
+class ProductImageUpdate(BaseModel):
+    image_url: str | None = Field(default=None, max_length=1000)
+    alt_text: str | None = Field(default=None, max_length=255)
+    sort_order: int | None = None
+    is_primary: bool | None = None
+
+
+class ProductVariantCreate(BaseModel):
+    sku: str | None = Field(default=None, max_length=120)
+    size: str | None = Field(default=None, max_length=50)
+    color: str | None = Field(default=None, max_length=80)
+    price_cents: int | None = Field(default=None, ge=0)
+    stock_quantity: int = Field(default=0, ge=0)
+    is_active: bool = True
+
+
+class ProductVariantUpdate(BaseModel):
+    sku: str | None = Field(default=None, max_length=120)
+    size: str | None = Field(default=None, max_length=50)
+    color: str | None = Field(default=None, max_length=80)
+    price_cents: int | None = Field(default=None, ge=0)
+    stock_quantity: int | None = Field(default=None, ge=0)
+    is_active: bool | None = None
+
+
 class ProductImageRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

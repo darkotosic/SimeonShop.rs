@@ -6,7 +6,7 @@ Enterprise-grade e-commerce MVP for selling clothing through Instagram/Facebook 
 
 - **Frontend:** Next.js 16, React 19, TypeScript, App Router, Tailwind CSS
 - **Backend:** FastAPI, SQLAlchemy, Pydantic, JWT authentication, SlowAPI rate limiting
-- **Database:** PostgreSQL in production, Alembic migrations, SQLite-compatible test setup
+- **Database:** Render PostgreSQL in production, Alembic migrations, isolated test database setup
 - **Deployment:** Netlify frontend, Render backend, Render PostgreSQL
 
 ## Core API endpoints
@@ -28,6 +28,13 @@ All admin endpoints require `Authorization: Bearer <token>` from an admin user:
 - `POST /api/v1/admin/products`
 - `PATCH /api/v1/admin/products/{product_id}`
 - `DELETE /api/v1/admin/products/{product_id}` (soft delete)
+- `POST /api/v1/admin/products/{product_id}/images`
+- `PATCH /api/v1/admin/products/{product_id}/images/{image_id}`
+- `DELETE /api/v1/admin/products/{product_id}/images/{image_id}`
+- `PATCH /api/v1/admin/products/{product_id}/images/{image_id}/primary`
+- `POST /api/v1/admin/products/{product_id}/variants`
+- `PATCH /api/v1/admin/products/{product_id}/variants/{variant_id}`
+- `DELETE /api/v1/admin/products/{product_id}/variants/{variant_id}` (soft delete)
 - `GET /api/v1/admin/orders`
 - `PATCH /api/v1/admin/orders/{order_id}/status`
 - `GET /api/v1/admin/categories`
@@ -43,12 +50,12 @@ All admin endpoints require `Authorization: Bearer <token>` from an admin user:
 
 ```bash
 cd apps/api
-python -m venv .venv
-source .venv/bin/activate
+py -3.12 -m venv .venv
+.venv\Scripts\activate
+python -m pip install --upgrade pip
 pip install -r requirements.txt
-cp .env.example .env
 alembic upgrade head
-uvicorn app.main:app --reload
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ### Frontend

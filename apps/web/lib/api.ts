@@ -43,13 +43,13 @@ export type ProductVariant = { id: number; sku?: string | null; size?: string | 
 export type Product = {
   id: number; name: string; slug: string; sku?: string | null; description?: string | null; category_id?: number | null; category?: Category | null;
   short_description?: string | null; price_cents: number; compare_at_price_cents?: number | null; currency: string; image_url?: string | null;
-  stock_quantity: number; effective_stock_quantity?: number; material?: string | null; care_instructions?: string | null; seo_title?: string | null; seo_description?: string | null;
+  stock_quantity: number; sort_order: number; effective_stock_quantity?: number; material?: string | null; care_instructions?: string | null; seo_title?: string | null; seo_description?: string | null;
   is_active: boolean; images: ProductImage[]; variants: ProductVariant[]; created_at: string; updated_at: string;
 };
 export type ProductListResponse = { items: Product[]; total: number; page: number; page_size: number; pages: number };
 export type CartLine = { lineId: string; productId: number; variantId?: number; name: string; slug: string; imageUrl?: string | null; sku?: string | null; variantLabel?: string; unitPriceCents: number; quantity: number; stockQuantity: number; currency: string };
 export type GuestCheckoutPayload = { customer_name: string; customer_email?: string; customer_phone: string; shipping_city: string; shipping_postal_code: string; shipping_address: string; note?: string; items: { product_id: number; variant_id?: number; quantity: number }[] };
-export type Order = { id: number; order_number: string; status: string; total_cents: number; currency: string; customer_name: string; created_at: string; items: { id: number; product_name: string; quantity: number; total_price_cents: number }[] };
+export type Order = { id: number; order_number: string; status: string; total_cents: number; currency: string; customer_name: string; customer_email?: string | null; customer_phone: string; shipping_city: string; shipping_postal_code: string; shipping_address: string; note?: string | null; created_at: string; items: { id: number; product_name: string; quantity: number; total_price_cents: number }[] };
 export type AdminSummary = { new_orders: number; active_products: number; out_of_stock_products: number; latest_orders: Order[] };
 
 const paramsToQuery = (params: Record<string, string | number | undefined>) => {
@@ -72,3 +72,28 @@ export const getAdminOrders = (token: string) => apiFetch<Order[]>('/api/v1/admi
 export const updateAdminOrderStatus = (token: string, orderId: number, status: string) => apiFetch<Order>(`/api/v1/admin/orders/${orderId}/status`, { method: 'PATCH', token, body: JSON.stringify({ status }) });
 
 export type HealthResponse = { status: string; message: string; version: string; environment: string };
+
+export type AdminProductPayload = Partial<Omit<Product, 'id' | 'category' | 'images' | 'variants' | 'created_at' | 'updated_at' | 'effective_stock_quantity'>> & { name?: string; price_cents?: number };
+export type AdminCategoryPayload = Partial<Omit<Category, 'id' | 'slug' | 'created_at' | 'updated_at'>> & { name?: string; slug?: string | null };
+export type AdminProductImagePayload = { image_url?: string; alt_text?: string | null; sort_order?: number; is_primary?: boolean };
+export type AdminProductVariantPayload = { sku?: string | null; size?: string | null; color?: string | null; price_cents?: number | null; stock_quantity?: number; is_active?: boolean };
+export type StoreSetting = { id: number; key: string; value?: string | null; value_type: string; is_public: boolean; created_at: string; updated_at: string };
+export type StoreSettingPayload = { value?: string | null; value_type?: string; is_public?: boolean };
+
+export const getAdminProducts = (token: string, params: Record<string, string | number | undefined> = {}) => apiFetch<ProductListResponse>(`/api/v1/admin/products${paramsToQuery(params)}`, { token, publicGet: false });
+export const createAdminProduct = (token: string, payload: AdminProductPayload) => apiFetch<Product>('/api/v1/admin/products', { method: 'POST', token, body: JSON.stringify(payload) });
+export const updateAdminProduct = (token: string, productId: number, payload: AdminProductPayload) => apiFetch<Product>(`/api/v1/admin/products/${productId}`, { method: 'PATCH', token, body: JSON.stringify(payload) });
+export const deleteAdminProduct = (token: string, productId: number) => apiFetch<void>(`/api/v1/admin/products/${productId}`, { method: 'DELETE', token });
+export const getAdminCategories = (token: string) => apiFetch<Category[]>('/api/v1/admin/categories', { token, publicGet: false });
+export const createAdminCategory = (token: string, payload: AdminCategoryPayload) => apiFetch<Category>('/api/v1/admin/categories', { method: 'POST', token, body: JSON.stringify(payload) });
+export const updateAdminCategory = (token: string, categoryId: number, payload: AdminCategoryPayload) => apiFetch<Category>(`/api/v1/admin/categories/${categoryId}`, { method: 'PATCH', token, body: JSON.stringify(payload) });
+export const deleteAdminCategory = (token: string, categoryId: number) => apiFetch<void>(`/api/v1/admin/categories/${categoryId}`, { method: 'DELETE', token });
+export const createAdminProductImage = (token: string, productId: number, payload: AdminProductImagePayload) => apiFetch<ProductImage>(`/api/v1/admin/products/${productId}/images`, { method: 'POST', token, body: JSON.stringify(payload) });
+export const updateAdminProductImage = (token: string, productId: number, imageId: number, payload: AdminProductImagePayload) => apiFetch<ProductImage>(`/api/v1/admin/products/${productId}/images/${imageId}`, { method: 'PATCH', token, body: JSON.stringify(payload) });
+export const deleteAdminProductImage = (token: string, productId: number, imageId: number) => apiFetch<void>(`/api/v1/admin/products/${productId}/images/${imageId}`, { method: 'DELETE', token });
+export const setPrimaryAdminProductImage = (token: string, productId: number, imageId: number) => apiFetch<ProductImage>(`/api/v1/admin/products/${productId}/images/${imageId}/primary`, { method: 'PATCH', token });
+export const createAdminProductVariant = (token: string, productId: number, payload: AdminProductVariantPayload) => apiFetch<ProductVariant>(`/api/v1/admin/products/${productId}/variants`, { method: 'POST', token, body: JSON.stringify(payload) });
+export const updateAdminProductVariant = (token: string, productId: number, variantId: number, payload: AdminProductVariantPayload) => apiFetch<ProductVariant>(`/api/v1/admin/products/${productId}/variants/${variantId}`, { method: 'PATCH', token, body: JSON.stringify(payload) });
+export const deleteAdminProductVariant = (token: string, productId: number, variantId: number) => apiFetch<ProductVariant>(`/api/v1/admin/products/${productId}/variants/${variantId}`, { method: 'DELETE', token });
+export const getAdminSettings = (token: string) => apiFetch<StoreSetting[]>('/api/v1/admin/settings', { token, publicGet: false });
+export const updateAdminSetting = (token: string, key: string, payload: StoreSettingPayload) => apiFetch<StoreSetting>(`/api/v1/admin/settings/${encodeURIComponent(key)}`, { method: 'PATCH', token, body: JSON.stringify(payload) });

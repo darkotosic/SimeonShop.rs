@@ -73,39 +73,16 @@ pm2 start "npm start" --name "simeonshop-web"
 
 ## 🔧 Backend Deployment
 
-### Option 1: Railway (Easiest)
+### Option 1: Render (Recommended)
 
-1. Connect GitHub repository
-2. Create new project
-3. Select Python environment
-4. Configure environment variables
-5. Auto-deploys on push
+1. Create a Render Web Service from the GitHub repository.
+2. Set the root directory to `apps/api`.
+3. Use Python 3.12 and install with `pip install -r requirements.txt`.
+4. Configure the start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`.
+5. Attach a Render PostgreSQL database and set `DATABASE_URL` from Render.
+6. Run `alembic upgrade head` during release/migration workflow before serving production traffic.
 
-### Option 2: Heroku
-
-```bash
-# Install Heroku CLI
-npm install -g heroku
-
-# Login
-heroku login
-
-# Create app
-heroku create simeonshop-api
-
-# Configure environment variables
-heroku config:set ENVIRONMENT=production
-heroku config:set ALLOWED_ORIGINS=https://simeonshop.rs
-heroku config:set DATABASE_URL=your_database_url
-
-# Deploy
-git push heroku main
-
-# View logs
-heroku logs --tail
-```
-
-### Option 3: DigitalOcean App Platform
+### Option 2: DigitalOcean App Platform
 
 1. Connect GitHub
 2. Select "Python" as environment
@@ -113,7 +90,7 @@ heroku logs --tail
 4. Configure startup command: `uvicorn app.main:app --host 0.0.0.0`
 5. Deploy
 
-### Option 4: Docker + Docker Compose
+### Option 3: Docker + Docker Compose
 
 ```bash
 # Build images
@@ -140,7 +117,7 @@ NEXT_PUBLIC_API_BASE_URL=https://api.simeonshop.rs
 
 ### Backend (.env.production)
 ```env
-ENVIRONMENT=production
+APP_ENV=production
 ALLOWED_ORIGINS=https://simeonshop.rs,https://www.simeonshop.rs
 HOST=0.0.0.0
 PORT=8000
@@ -203,13 +180,13 @@ sentry_sdk.init(
 
 ### Phase 1: MVP (Current Setup)
 - Netlify: Frontend
-- Railway/Heroku: Backend
-- SQLite: Database (local file)
+- Render: Backend
+- Render PostgreSQL: Database
 
 ### Phase 2: Growth
 - Netlify Pro: CDN, custom domain
-- Dedicated server: Backend
-- PostgreSQL: Database
+- Render autoscaling or dedicated server: Backend
+- Render PostgreSQL: Database
 
 ### Phase 3: Enterprise
 - CloudFlare: CDN & DDoS protection
@@ -277,11 +254,10 @@ app.add_middleware(GZipMiddleware, minimum_size=1000)
 2. Click "Rollback" on previous deployment
 3. Confirm
 
-### Backend (Heroku)
-```bash
-heroku releases
-heroku rollback v42
-```
+### Backend (Render)
+1. Open the Render service deploy history.
+2. Redeploy the last known-good commit or roll back to the previous image.
+3. Verify health checks and logs after rollback.
 
 ## 📋 Post-Deployment
 

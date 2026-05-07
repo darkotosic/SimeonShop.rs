@@ -4,25 +4,19 @@ FastAPI-based REST API for SimeonShop.rs e-commerce platform.
 
 ## 🚀 Quick Start
 
+### Backend local commands (Windows / PowerShell)
+
 ```bash
-# Create virtual environment
-python -m venv venv
-
-# Activate virtual environment
-# Windows:
-venv\Scripts\activate
-# macOS/Linux:
-source venv/bin/activate
-
-# Install dependencies
+cd apps/api
+py -3.12 -m venv .venv
+.venv\Scripts\activate
+python -m pip install --upgrade pip
 pip install -r requirements.txt
-
-# Create .env file (copy from .env.example)
-cp .env.example .env
-
-# Run development server (port 8000)
-python app/main.py
+alembic upgrade head
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
+
+For macOS/Linux, create a Python 3.12 virtual environment with your local Python launcher and activate it with `source .venv/bin/activate`.
 
 Visit `http://localhost:8000/api/docs` for API documentation.
 
@@ -53,7 +47,7 @@ api/
 
 ```bash
 # Run development server
-python app/main.py
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 # Run with uvicorn (with auto-reload)
 uvicorn app.main:app --reload --port 8000
@@ -100,7 +94,7 @@ All endpoints are under `/api/v1` prefix.
 ### Environment Variables
 ```env
 # .env
-ENVIRONMENT=development
+APP_ENV=development
 ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8000
 HOST=0.0.0.0
 PORT=8000
@@ -147,7 +141,7 @@ pytest --cov=app
 
 ### Development
 ```bash
-python app/main.py
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 ### Production with Gunicorn
@@ -158,7 +152,7 @@ gunicorn app.main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker
 
 ### Docker
 ```dockerfile
-FROM python:3.10
+FROM python:3.12
 WORKDIR /app
 COPY requirements.txt .
 RUN pip install -r requirements.txt
@@ -171,13 +165,13 @@ CMD ["python", "app/main.py"]
 - ✅ CORS properly configured
 - ✅ Environment variables for secrets
 - ✅ Pydantic data validation
-- ✅ Demo authentication endpoint (production-ready auth needed)
+- ✅ JWT admin authentication
 
 ### TODO - Production Security
-- [ ] Real authentication (JWT tokens)
-- [ ] Database integration
-- [ ] Rate limiting
-- [ ] Input sanitization
+- [x] JWT authentication
+- [x] PostgreSQL via SQLAlchemy and Alembic
+- [x] Rate limiting
+- [x] Input validation
 - [ ] HTTPS enforcement
 - [ ] SQL injection prevention
 
@@ -186,7 +180,7 @@ CMD ["python", "app/main.py"]
 ### Port 8000 already in use
 ```bash
 # Use different port
-python app/main.py --port 8001
+uvicorn app.main:app --reload --host 0.0.0.0 --port 8000 --port 8001
 # Or kill process:
 # Windows: netstat -ano | findstr :8000
 # macOS/Linux: lsof -i :8000

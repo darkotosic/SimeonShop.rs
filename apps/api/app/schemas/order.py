@@ -20,11 +20,23 @@ class GuestCheckoutItem(BaseModel):
 
 
 class GuestCheckoutCreate(CheckoutCreate):
+    idempotency_key: str | None = Field(default=None, max_length=120, pattern=r"^[A-Za-z0-9._:-]{8,120}$")
     items: list[GuestCheckoutItem] = Field(min_length=1, max_length=50)
 
 
 class OrderStatusUpdate(BaseModel):
     status: str = Field(pattern="^(new|confirmed|packed|shipped|delivered|cancelled)$")
+
+
+class OrderStatusEventRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    old_status: str | None
+    new_status: str
+    actor_user_id: int | None
+    note: str | None
+    created_at: datetime
 
 
 class OrderItemRead(BaseModel):
@@ -55,6 +67,14 @@ class OrderRead(BaseModel):
     shipping_postal_code: str
     shipping_address: str
     note: str | None
+    idempotency_key: str | None = None
+    confirmed_at: datetime | None = None
+    packed_at: datetime | None = None
+    shipped_at: datetime | None = None
+    delivered_at: datetime | None = None
+    cancelled_at: datetime | None = None
+    internal_note: str | None = None
     created_at: datetime
     updated_at: datetime
     items: list[OrderItemRead]
+    status_events: list[OrderStatusEventRead] = []

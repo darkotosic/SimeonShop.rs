@@ -1,0 +1,3 @@
+import type { Metadata } from 'next';
+export const metadata: Metadata = { title: 'Vodič za veličine', description: 'Saveti za izbor veličine garderobe u Simeon Shop prodavnici.', alternates: { canonical: '/size-guide' } };
+export default function SizeGuidePage() { return <main className="mx-auto max-w-4xl px-4 py-12"><h1 className="text-4xl font-bold text-primary">Vodič za veličine</h1><p className="mt-4 text-slate-700">Preporučujemo da uporedite mere omiljenog komada garderobe sa opisom proizvoda. Ako niste sigurni, kontaktirajte nas pre poručivanja.</p><div className="mt-6 grid gap-3 sm:grid-cols-3">{['S', 'M', 'L/XL'].map((size) => <div key={size} className="rounded-3xl border border-slate-200 p-5 text-center font-bold text-primary">{size}</div>)}</div></main>; }

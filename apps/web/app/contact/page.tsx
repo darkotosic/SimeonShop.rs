@@ -3,6 +3,7 @@ import { SectionHeader } from '@/components/SectionHeader';
 
 export const metadata: Metadata = {
   title: 'Kontakt',
+  alternates: { canonical: '/contact' },
   description: 'Kontakt podaci za Simeon Shop.',
 };
 

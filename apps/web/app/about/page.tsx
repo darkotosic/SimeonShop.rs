@@ -3,6 +3,7 @@ import { SectionHeader } from '@/components/SectionHeader';
 
 export const metadata: Metadata = {
   title: 'O nama',
+  alternates: { canonical: '/about' },
   description: 'Informacije o Simeon Shop brendu.',
 };
 

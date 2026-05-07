@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.models.cart import Cart, CartItem
 from app.models.order import Order, OrderItem
+from app.models.order_status_event import OrderStatusEvent
 from app.models.product import Product
 from app.models.product_variant import ProductVariant
 from app.schemas.order import CheckoutCreate, GuestCheckoutCreate
@@ -82,7 +83,7 @@ def create_order_from_cart(db: Session, user_id: int, payload: CheckoutCreate) -
 def get_order_by_id(db: Session, order_id: int) -> Order | None:
     return (
         db.query(Order)
-        .options(selectinload(Order.items))
+        .options(selectinload(Order.items), selectinload(Order.status_events))
         .filter(Order.id == order_id)
         .first()
     )
@@ -91,7 +92,7 @@ def get_order_by_id(db: Session, order_id: int) -> Order | None:
 def get_user_orders(db: Session, user_id: int) -> list[Order]:
     return (
         db.query(Order)
-        .options(selectinload(Order.items))
+        .options(selectinload(Order.items), selectinload(Order.status_events))
         .filter(Order.user_id == user_id)
         .order_by(Order.created_at.desc())
         .all()
@@ -99,18 +100,34 @@ def get_user_orders(db: Session, user_id: int) -> list[Order]:
 
 
 def get_orders(db: Session) -> list[Order]:
-    return db.query(Order).options(selectinload(Order.items)).order_by(Order.created_at.desc()).all()
+    return db.query(Order).options(selectinload(Order.items), selectinload(Order.status_events)).order_by(Order.created_at.desc()).all()
 
 
-def update_order_status(db: Session, order: Order, status_value: str) -> Order:
+def update_order_status(db: Session, order: Order, status_value: str, actor_user_id: int | None = None, note: str | None = None) -> Order:
+    old_status = order.status
     order.status = status_value
+    now = datetime.now(timezone.utc)
+    timestamp_field = {
+        "confirmed": "confirmed_at",
+        "packed": "packed_at",
+        "shipped": "shipped_at",
+        "delivered": "delivered_at",
+        "cancelled": "cancelled_at",
+    }.get(status_value)
+    if timestamp_field and getattr(order, timestamp_field) is None:
+        setattr(order, timestamp_field, now)
+    db.add(OrderStatusEvent(order_id=order.id, old_status=old_status, new_status=status_value, actor_user_id=actor_user_id, note=note))
     db.add(order)
     db.commit()
-    db.refresh(order)
-    return order
+    return get_order_by_id(db, order.id) or order
 
 
 def create_guest_order(db: Session, payload: GuestCheckoutCreate) -> Order:
+    if payload.idempotency_key:
+        existing = db.query(Order).options(selectinload(Order.items), selectinload(Order.status_events)).filter(Order.idempotency_key == payload.idempotency_key).first()
+        if existing:
+            return existing
+
     total_cents = 0
     order_lines: list[tuple[Product, ProductVariant | None, int, int]] = []
 
@@ -156,6 +173,7 @@ def create_guest_order(db: Session, payload: GuestCheckoutCreate) -> Order:
             shipping_postal_code=payload.shipping_postal_code,
             shipping_address=payload.shipping_address,
             note=payload.note,
+            idempotency_key=payload.idempotency_key,
         )
         db.add(order)
         db.flush()

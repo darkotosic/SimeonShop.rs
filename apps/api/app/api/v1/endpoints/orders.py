@@ -37,7 +37,7 @@ def checkout(
 @router.post("/guest-checkout", response_model=OrderRead, status_code=status.HTTP_201_CREATED)
 @limiter.limit(settings.RATE_LIMIT_CHECKOUT)
 def guest_checkout(request: Request, payload: GuestCheckoutCreate, db: Session = Depends(get_db)):
-    order = create_guest_order(db, payload)
+    order = create_guest_order(db, payload, customer_ip=request.client.host if request.client else None, user_agent=request.headers.get("user-agent"))
     _send_order_emails(order)
     return order
 

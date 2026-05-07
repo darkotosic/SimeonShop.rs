@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { SectionHeader } from '@/components/SectionHeader';
+import { loadPublicStoreSettings } from '@/lib/store-settings';
 
 export const metadata: Metadata = {
   title: 'Kontakt',
@@ -7,13 +8,18 @@ export const metadata: Metadata = {
   description: 'Kontakt podaci za Simeon Shop.',
 };
 
-export default function ContactPage() {
+export default async function ContactPage() {
+  const settings = await loadPublicStoreSettings();
   return (
     <main className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
       <SectionHeader title="Kontakt" description="Za pitanja o proizvodima i porudžbinama kontaktirajte nas direktno." />
-      <div className="mt-8 border border-slate-200 bg-white p-6 text-slate-700">
-        <p>Email: dev@simeonshop.rs</p>
-        <p className="mt-2">Telefon: +381 00 000 000</p>
+      <div className="mt-8 space-y-3 border border-slate-200 bg-white p-6 text-slate-700">
+        <p><strong>Email:</strong> {settings.store_email}</p>
+        <p><strong>Telefon:</strong> {settings.store_phone}</p>
+        {settings.company_name && <p><strong>Prodavac:</strong> {settings.company_name}</p>}
+        {settings.company_address && <p><strong>Adresa:</strong> {settings.company_address}</p>}
+        {settings.company_registration_number && <p><strong>Matični broj:</strong> {settings.company_registration_number}</p>}
+        {settings.company_tax_id && <p><strong>PIB:</strong> {settings.company_tax_id}</p>}
       </div>
     </main>
   );

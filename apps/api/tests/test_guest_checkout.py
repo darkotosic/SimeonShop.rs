@@ -11,6 +11,8 @@ def test_guest_checkout_creates_order_and_decrements_stock(client, db):
         "shipping_city": "Beograd",
         "shipping_postal_code": "11000",
         "shipping_address": "Test ulica 1",
+        "accepted_terms": True,
+        "source": "web",
         "items": [{"product_id": product.id, "quantity": 2}],
     })
     assert response.status_code == 201, response.text

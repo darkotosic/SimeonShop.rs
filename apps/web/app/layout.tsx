@@ -12,13 +12,13 @@ export const metadata: Metadata = {
     template: `%s | ${brandName}`,
   },
   description:
-    'Simeon Shop je online prodavnica kvalitetne garderobe sa brzom isporukom, sigurnom porudzbinom i modernim dizajnom.',
+    'Simeon Shop je online prodavnica kvalitetne garderobe sa brzom isporukom, sigurnom porudžbinom i modernim dizajnom.',
   openGraph: {
     type: 'website',
     url: siteUrl,
     siteName: brandName,
     title: `${brandName} | Online prodavnica garderobe`,
-    description: 'Kvalitetna garderoba, brza isporuka i jednostavna porudzbina.',
+    description: 'Kvalitetna garderoba, brza isporuka i jednostavna porudžbina.',
   },
   twitter: {
     card: 'summary_large_image',
@@ -30,9 +30,14 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
+  const jsonLd = [
+    { '@context': 'https://schema.org', '@type': 'Organization', name: brandName, url: siteUrl },
+    { '@context': 'https://schema.org', '@type': 'WebSite', name: brandName, url: siteUrl },
+  ];
   return (
     <html lang="sr">
       <body className="min-h-screen font-sans antialiased">
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
         <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/95 backdrop-blur">
           <nav className="mx-auto flex max-w-7xl items-center justify-between px-4 py-4 sm:px-6 lg:px-8">
             <Link href="/" className="text-xl font-bold tracking-wide text-primary">
@@ -68,7 +73,7 @@ export default function RootLayout({
             </div>
             <div className="flex flex-col gap-2">
               <Link href="/privacy-policy">Politika privatnosti</Link>
-              <Link href="/terms-and-conditions">Uslovi koriscenja</Link>
+              <Link href="/terms-and-conditions">Uslovi korišćenja</Link>
               <span>dev@simeonshop.rs</span>
             </div>
           </div>

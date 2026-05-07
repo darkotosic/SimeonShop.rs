@@ -1,61 +1,41 @@
-name: Backend CI/CD
+name: Backend CI
 
 on:
   push:
     branches: [main, develop]
     paths:
       - 'apps/api/**'
-      - '.github/workflows/backend-*.yml'
+      - '.github/workflows/backend-ci.yml'
   pull_request:
     branches: [main, develop]
     paths:
       - 'apps/api/**'
+      - '.github/workflows/backend-ci.yml'
 
 jobs:
-  test-build:
+  test:
     runs-on: ubuntu-latest
-    
-    strategy:
-      matrix:
-        python-version: ['3.10']
-
+    env:
+      APP_ENV: test
+      DATABASE_URL: sqlite:///./test_ci.db
+      JWT_SECRET: test-secret-not-for-production
+      ALLOW_PUBLIC_REGISTRATION: 'false'
+      BOOTSTRAP_ADMIN_TOKEN: test-bootstrap-token
     steps:
-      - uses: actions/checkout@v3
-      
-      - name: Set up Python ${{ matrix.python-version }}
-        uses: actions/setup-python@v4
+      - uses: actions/checkout@v4
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          python-version: ${{ matrix.python-version }}
-          cache: 'pip'
-
+          python-version: '3.12'
+          cache: pip
       - name: Install dependencies
+        working-directory: apps/api
         run: |
-          cd apps/api
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-
-      - name: Lint with flake8
-        run: |
-          cd apps/api
-          pip install flake8
-          # Exit on error, but allow warnings
-          flake8 app --count --select=E9,F63,F7,F82 --show-source --statistics || true
-
-      - name: Check code style
-        run: |
-          cd apps/api
-          pip install black
-          black --check app --quiet || true
-
-      - name: Type check with mypy
-        run: |
-          cd apps/api
-          pip install mypy
-          mypy app --ignore-missing-imports || true
-
-      - name: Test application startup
-        run: |
-          cd apps/api
-          timeout 5 python app/main.py &
-          sleep 2
-          python -c "import requests; requests.get('http://localhost:8000/api/v1/health')" || echo "Health check test skipped"
+      - name: Compile
+        working-directory: apps/api
+        run: python -m compileall app
+      - name: Test
+        working-directory: apps/api
+        run: pytest

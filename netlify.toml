@@ -6,7 +6,6 @@ publish = ".next"
 [build.environment]
 NODE_VERSION = "22"
 NEXT_PUBLIC_SITE_URL = "https://simeonshop.rs"
-NEXT_PUBLIC_API_BASE_URL = "https://simeonshop-api.onrender.com"
 NEXT_PUBLIC_BRAND_NAME = "Simeon Shop"
 NEXT_PUBLIC_DEFAULT_LOCALE = "sr"
 
@@ -23,5 +22,6 @@ for = "/*"
 [headers.values]
 X-Content-Type-Options = "nosniff"
 X-Frame-Options = "DENY"
-X-XSS-Protection = "1; mode=block"
 Referrer-Policy = "strict-origin-when-cross-origin"
+Permissions-Policy = "camera=(), microphone=(), geolocation=()"
+Strict-Transport-Security = "max-age=31536000; includeSubDomains; preload"

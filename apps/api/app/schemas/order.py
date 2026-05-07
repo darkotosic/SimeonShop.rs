@@ -13,6 +13,16 @@ class CheckoutCreate(BaseModel):
     note: str | None = None
 
 
+class GuestCheckoutItem(BaseModel):
+    product_id: int
+    variant_id: int | None = None
+    quantity: int = Field(ge=1, le=99)
+
+
+class GuestCheckoutCreate(CheckoutCreate):
+    items: list[GuestCheckoutItem] = Field(min_length=1, max_length=50)
+
+
 class OrderStatusUpdate(BaseModel):
     status: str = Field(pattern="^(new|confirmed|packed|shipped|delivered|cancelled)$")
 

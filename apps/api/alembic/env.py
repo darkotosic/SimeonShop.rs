@@ -2,6 +2,7 @@ from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
+from sqlalchemy.dialects.sqlite.base import SQLiteCompiler
 
 from app.core.config import settings
 from app.db.base import Base
@@ -18,6 +19,17 @@ def normalize_database_url(database_url: str) -> str:
         return database_url.replace("postgres://", "postgresql://", 1)
     return database_url
 
+
+
+def patch_sqlite_now_default() -> None:
+    original_visit_textclause = SQLiteCompiler.visit_textclause
+
+    def visit_textclause(self, textclause, add_to_result_map=None, **kw):  # type: ignore[no-untyped-def]
+        if getattr(textclause, "text", "").lower() == "now()":
+            return "CURRENT_TIMESTAMP"
+        return original_visit_textclause(self, textclause, add_to_result_map=add_to_result_map, **kw)
+
+    SQLiteCompiler.visit_textclause = visit_textclause
 
 target_metadata = Base.metadata
 config.set_main_option("sqlalchemy.url", normalize_database_url(settings.DATABASE_URL).replace("%", "%%"))
@@ -37,6 +49,9 @@ def run_migrations_offline() -> None:
 
 
 def run_migrations_online() -> None:
+    if normalize_database_url(settings.DATABASE_URL).startswith("sqlite"):
+        patch_sqlite_now_default()
+
     connectable = engine_from_config(
         config.get_section(config.config_ini_section, {}),
         prefix="sqlalchemy.",
@@ -44,7 +59,7 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(connection=connection, target_metadata=target_metadata)
+        context.configure(connection=connection, target_metadata=target_metadata, render_as_batch=connection.dialect.name == "sqlite")
 
         with context.begin_transaction():
             context.run_migrations()

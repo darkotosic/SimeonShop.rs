@@ -1,121 +1,82 @@
 # SimeonShop.rs
 
-Enterprise-ready e-commerce monorepo for `simeonshop.rs`.
+Enterprise-grade e-commerce MVP for selling clothing through Instagram/Facebook channels with a decoupled storefront, protected admin dashboard, FastAPI backend and PostgreSQL database.
 
-## Architecture
+## Stack
 
-- Frontend: Next.js, TypeScript, Tailwind CSS, hosted on Netlify
-- Backend: FastAPI, hosted on Render.com
-- Database target: PostgreSQL on Render.com
-- Admin: protected dashboard under `/admin`
+- **Frontend:** Next.js 16, React 19, TypeScript, App Router, Tailwind CSS
+- **Backend:** FastAPI, SQLAlchemy, Pydantic, JWT authentication, SlowAPI rate limiting
+- **Database:** PostgreSQL in production, Alembic migrations, SQLite-compatible test setup
+- **Deployment:** Netlify frontend, Render backend, Render PostgreSQL
 
-## Project Structure
+## Core API endpoints
 
-```txt
-apps/
-  web/
-    app/
-    components/
-    lib/
-    styles/
-  api/
-    app/
-      api/v1/
-      core/
-      main.py
-README.md
-AGENTS.md
-netlify.toml
-```
+- `GET /api/v1/health`
+- `POST /api/v1/auth/login`
+- `POST /api/v1/auth/bootstrap-admin`
+- `GET /api/v1/products`
+- `GET /api/v1/products/{slug}`
+- `GET /api/v1/categories`
+- `POST /api/v1/orders/guest-checkout`
 
-## Frontend
+## Admin API endpoints
 
-```bash
-cd apps/web
-npm install
-npm run dev
-```
+All admin endpoints require `Authorization: Bearer <token>` from an admin user:
 
-Local URL: `http://localhost:3000`
+- `GET /api/v1/admin/summary`
+- `GET /api/v1/admin/products`
+- `POST /api/v1/admin/products`
+- `PATCH /api/v1/admin/products/{product_id}`
+- `DELETE /api/v1/admin/products/{product_id}` (soft delete)
+- `GET /api/v1/admin/orders`
+- `PATCH /api/v1/admin/orders/{order_id}/status`
+- `GET /api/v1/admin/categories`
+- `POST /api/v1/admin/categories`
+- `PATCH /api/v1/admin/categories/{category_id}`
+- `DELETE /api/v1/admin/categories/{category_id}` (soft delete)
+- `GET /api/v1/admin/settings`
+- `PATCH /api/v1/admin/settings/{key}`
 
-Required environment:
+## Local development
 
-```env
-NEXT_PUBLIC_SITE_URL=http://localhost:3000
-NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
-NEXT_PUBLIC_BRAND_NAME=Simeon Shop
-NEXT_PUBLIC_DEFAULT_LOCALE=sr
-```
-
-## Backend
+### Backend
 
 ```bash
 cd apps/api
 python -m venv .venv
-.venv\Scripts\activate
+source .venv/bin/activate
 pip install -r requirements.txt
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
+cp .env.example .env
+alembic upgrade head
+uvicorn app.main:app --reload
 ```
 
-Local API docs: `http://localhost:8000/api/docs`
-
-Required environment:
-
-```env
-APP_ENV=development
-APP_NAME=SimeonShop API
-API_PREFIX=/api/v1
-DATABASE_URL=postgresql://user:password@localhost:5432/simeonshop
-ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8000,http://127.0.0.1:3000
-JWT_SECRET=change-me
-```
-
-## Current Routes
-
-Frontend:
-
-- `/`
-- `/products`
-- `/cart`
-- `/checkout`
-- `/about`
-- `/contact`
-- `/privacy-policy`
-- `/terms-and-conditions`
-- `/admin/login`
-- `/admin/dashboard`
-
-Backend:
-
-- `GET /api/v1/health`
-- `GET /api/v1/products`
-- `POST /api/v1/orders`
-
-## Quality Gates
-
-Frontend:
+### Frontend
 
 ```bash
 cd apps/web
-npm run lint
-npm run type-check
-npm run build
+cp .env.example .env.local
+npm ci
+npm run dev
 ```
 
-Backend:
+## Required environment variables
+
+See `apps/api/.env.example` and `apps/web/.env.example`. Do not hardcode API URLs, JWT secrets, SMTP credentials, admin bootstrap tokens or database URLs.
+
+## Quality gates
 
 ```bash
 cd apps/api
+python -m compileall app
 pytest
+alembic upgrade head
 ```
 
-## Deployment
-
-Netlify uses `netlify.toml` with `apps/web` as the build base.
-
-Render web service:
-
 ```bash
-pip install -r requirements.txt
-uvicorn app.main:app --host 0.0.0.0 --port $PORT
+cd apps/web
+npm ci
+npm run lint
+npm run type-check
+npm run build
 ```

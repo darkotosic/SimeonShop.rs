@@ -14,6 +14,11 @@ from app.core.rate_limit import limiter
 setup_logging(settings.LOG_LEVEL)
 settings.validate_runtime_security()
 
+if settings.SENTRY_DSN:
+    import sentry_sdk
+
+    sentry_sdk.init(dsn=settings.SENTRY_DSN, environment=settings.SENTRY_ENVIRONMENT, traces_sample_rate=0.05)
+
 app = FastAPI(
     title=settings.APP_NAME,
     version=settings.PROJECT_VERSION,

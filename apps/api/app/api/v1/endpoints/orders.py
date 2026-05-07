@@ -64,4 +64,4 @@ def change_order_status(
     if not order:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Order not found.")
 
-    return update_order_status(db, order, payload.status)
+    return update_order_status(db, order, payload.status, actor_user_id=current_admin.id)

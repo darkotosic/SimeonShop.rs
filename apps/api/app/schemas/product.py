@@ -1,14 +1,20 @@
 from datetime import datetime
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field
+from pydantic import BaseModel, ConfigDict, Field, computed_field, field_validator
 
 from app.schemas.category import CategoryRead
+from app.services.media import validate_image_url
 
 
 
 
 class ProductImageCreate(BaseModel):
     image_url: str = Field(max_length=1000)
+
+    @field_validator("image_url")
+    @classmethod
+    def validate_url(cls, value: str) -> str:
+        return validate_image_url(value)
     alt_text: str | None = Field(default=None, max_length=255)
     sort_order: int = 0
     is_primary: bool = False
@@ -16,6 +22,11 @@ class ProductImageCreate(BaseModel):
 
 class ProductImageUpdate(BaseModel):
     image_url: str | None = Field(default=None, max_length=1000)
+
+    @field_validator("image_url")
+    @classmethod
+    def validate_url(cls, value: str | None) -> str | None:
+        return validate_image_url(value) if value else value
     alt_text: str | None = Field(default=None, max_length=255)
     sort_order: int | None = None
     is_primary: bool | None = None

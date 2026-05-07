@@ -37,6 +37,17 @@ class Settings(BaseSettings):
     RATE_LIMIT_AUTH: str = "10/minute"
     RATE_LIMIT_CHECKOUT: str = "5/minute"
     LOG_LEVEL: str = "INFO"
+    MEDIA_PROVIDER: str = "external_url"
+    CLOUDINARY_CLOUD_NAME: str | None = None
+    CLOUDINARY_API_KEY: str | None = None
+    CLOUDINARY_API_SECRET: str | None = None
+    CLOUDFLARE_R2_ACCOUNT_ID: str | None = None
+    CLOUDFLARE_R2_ACCESS_KEY_ID: str | None = None
+    CLOUDFLARE_R2_SECRET_ACCESS_KEY: str | None = None
+    CLOUDFLARE_R2_BUCKET: str | None = None
+    CLOUDFLARE_R2_PUBLIC_URL: str | None = None
+    SENTRY_DSN: str | None = None
+    SENTRY_ENVIRONMENT: str = "production"
 
     model_config = SettingsConfigDict(
         env_file=".env",

@@ -22,12 +22,20 @@ class Order(Base):
     shipping_postal_code = Column(String(32), nullable=False)
     shipping_address = Column(String(500), nullable=False)
     note = Column(Text, nullable=True)
+    idempotency_key = Column(String(120), nullable=True, unique=True, index=True)
+    confirmed_at = Column(DateTime(timezone=True), nullable=True)
+    packed_at = Column(DateTime(timezone=True), nullable=True)
+    shipped_at = Column(DateTime(timezone=True), nullable=True)
+    delivered_at = Column(DateTime(timezone=True), nullable=True)
+    cancelled_at = Column(DateTime(timezone=True), nullable=True)
+    internal_note = Column(Text, nullable=True)
 
     created_at = Column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at = Column(DateTime(timezone=True), server_default=func.now(), onupdate=func.now(), nullable=False)
 
     user = relationship("User", back_populates="orders")
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
+    status_events = relationship("OrderStatusEvent", back_populates="order", cascade="all, delete-orphan", order_by="OrderStatusEvent.created_at")
 
 
 class OrderItem(Base):

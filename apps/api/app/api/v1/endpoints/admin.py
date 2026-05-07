@@ -37,6 +37,8 @@ from app.schemas.product import (
     ProductVariantUpdate,
 )
 from app.schemas.store import StoreSettingRead, StoreSettingUpdate
+from app.models.audit_log import AuditLog
+from app.services.audit import create_audit_log
 
 router = APIRouter()
 
@@ -80,7 +82,9 @@ def admin_products(page: int = 1, page_size: int = 12, db: Session = Depends(get
 @router.post("/products", response_model=ProductRead, status_code=status.HTTP_201_CREATED)
 def admin_create_product(payload: ProductCreate, db: Session = Depends(get_db), current_admin: User = Depends(get_current_admin)):
     try:
-        return create_product(db, payload)
+        product = create_product(db, payload)
+        create_audit_log(db, current_admin.id, "create", "product", product.id)
+        return product
     except IntegrityError as exc:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Product slug or SKU already exists.") from exc
@@ -91,7 +95,9 @@ def admin_update_product(product_id: int, payload: ProductUpdate, db: Session = 
     product = get_product_by_id(db, product_id)
     if not product:
         raise HTTPException(status_code=404, detail="Product not found.")
-    return update_product(db, product, payload)
+    updated = update_product(db, product, payload)
+    create_audit_log(db, current_admin.id, "update", "product", product_id)
+    return updated
 
 
 @router.delete("/products/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -100,6 +106,7 @@ def admin_delete_product(product_id: int, db: Session = Depends(get_db), current
     if not product:
         raise HTTPException(status_code=404, detail="Product not found.")
     delete_product(db, product)
+    create_audit_log(db, current_admin.id, "delete", "product", product_id)
     return None
 
 
@@ -111,7 +118,9 @@ def admin_create_product_image(
     current_admin: User = Depends(get_current_admin),
 ):
     _get_product_or_404(db, product_id)
-    return create_product_image(db, product_id, payload)
+    image = create_product_image(db, product_id, payload)
+    create_audit_log(db, current_admin.id, "create", "product_image", image.id, {"product_id": product_id})
+    return image
 
 
 @router.patch("/products/{product_id}/images/{image_id}", response_model=ProductImageRead)
@@ -123,7 +132,9 @@ def admin_update_product_image(
     current_admin: User = Depends(get_current_admin),
 ):
     image = _get_product_image_or_404(db, product_id, image_id)
-    return update_product_image(db, image, payload)
+    updated = update_product_image(db, image, payload)
+    create_audit_log(db, current_admin.id, "update", "product_image", image_id, {"product_id": product_id})
+    return updated
 
 
 @router.delete("/products/{product_id}/images/{image_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -135,6 +146,7 @@ def admin_delete_product_image(
 ):
     image = _get_product_image_or_404(db, product_id, image_id)
     delete_product_image(db, image)
+    create_audit_log(db, current_admin.id, "delete", "product_image", image_id, {"product_id": product_id})
     return None
 
 
@@ -146,7 +158,9 @@ def admin_set_primary_product_image(
     current_admin: User = Depends(get_current_admin),
 ):
     image = _get_product_image_or_404(db, product_id, image_id)
-    return set_primary_product_image(db, image)
+    updated = set_primary_product_image(db, image)
+    create_audit_log(db, current_admin.id, "update", "product_image", image_id, {"product_id": product_id, "primary": True})
+    return updated
 
 
 @router.post("/products/{product_id}/variants", response_model=ProductVariantRead, status_code=status.HTTP_201_CREATED)
@@ -158,7 +172,9 @@ def admin_create_product_variant(
 ):
     _get_product_or_404(db, product_id)
     try:
-        return create_product_variant(db, product_id, payload)
+        variant = create_product_variant(db, product_id, payload)
+        create_audit_log(db, current_admin.id, "create", "product_variant", variant.id, {"product_id": product_id})
+        return variant
     except IntegrityError as exc:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Product variant SKU already exists.") from exc
@@ -174,7 +190,9 @@ def admin_update_product_variant(
 ):
     variant = _get_product_variant_or_404(db, product_id, variant_id)
     try:
-        return update_product_variant(db, variant, payload)
+        updated = update_product_variant(db, variant, payload)
+        create_audit_log(db, current_admin.id, "update", "product_variant", variant_id, {"product_id": product_id})
+        return updated
     except IntegrityError as exc:
         db.rollback()
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Product variant SKU already exists.") from exc
@@ -188,7 +206,9 @@ def admin_delete_product_variant(
     current_admin: User = Depends(get_current_admin),
 ):
     variant = _get_product_variant_or_404(db, product_id, variant_id)
-    return delete_product_variant(db, variant)
+    deleted = delete_product_variant(db, variant)
+    create_audit_log(db, current_admin.id, "delete", "product_variant", variant_id, {"product_id": product_id})
+    return deleted
 
 
 @router.get("/orders", response_model=list[OrderRead])
@@ -201,7 +221,9 @@ def admin_order_status(order_id: int, payload: OrderStatusUpdate, db: Session = 
     order = get_order_by_id(db, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found.")
-    return update_order_status(db, order, payload.status)
+    updated = update_order_status(db, order, payload.status, actor_user_id=current_admin.id)
+    create_audit_log(db, current_admin.id, "update_status", "order", order_id, {"status": payload.status})
+    return updated
 
 
 @router.get("/categories", response_model=list[CategoryRead])
@@ -211,7 +233,9 @@ def admin_categories(db: Session = Depends(get_db), current_admin: User = Depend
 
 @router.post("/categories", response_model=CategoryRead, status_code=status.HTTP_201_CREATED)
 def admin_create_category(payload: CategoryCreate, db: Session = Depends(get_db), current_admin: User = Depends(get_current_admin)):
-    return create_category(db, payload)
+    category = create_category(db, payload)
+    create_audit_log(db, current_admin.id, "create", "category", category.id)
+    return category
 
 
 @router.patch("/categories/{category_id}", response_model=CategoryRead)
@@ -219,7 +243,9 @@ def admin_update_category(category_id: int, payload: CategoryUpdate, db: Session
     category = get_category_by_id(db, category_id)
     if not category:
         raise HTTPException(status_code=404, detail="Category not found.")
-    return update_category(db, category, payload)
+    updated = update_category(db, category, payload)
+    create_audit_log(db, current_admin.id, "update", "category", category_id)
+    return updated
 
 
 @router.delete("/categories/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -228,7 +254,24 @@ def admin_delete_category(category_id: int, db: Session = Depends(get_db), curre
     if not category:
         raise HTTPException(status_code=404, detail="Category not found.")
     soft_delete_category(db, category)
+    create_audit_log(db, current_admin.id, "delete", "category", category_id)
     return None
+
+
+@router.get("/audit-logs")
+def admin_audit_logs(action: str | None = None, entity_type: str | None = None, actor_user_id: int | None = None, page: int = 1, page_size: int = 50, db: Session = Depends(get_db), current_admin: User = Depends(get_current_admin)):
+    page = max(page, 1)
+    page_size = min(max(page_size, 1), 100)
+    query = db.query(AuditLog)
+    if action:
+        query = query.filter(AuditLog.action == action)
+    if entity_type:
+        query = query.filter(AuditLog.entity_type == entity_type)
+    if actor_user_id is not None:
+        query = query.filter(AuditLog.actor_user_id == actor_user_id)
+    total = query.count()
+    items = query.order_by(AuditLog.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    return {"items": [{"id": item.id, "actor_user_id": item.actor_user_id, "action": item.action, "entity_type": item.entity_type, "entity_id": item.entity_id, "metadata_json": item.metadata_json, "created_at": item.created_at} for item in items], "total": total, "page": page, "page_size": page_size}
 
 
 @router.get("/settings", response_model=list[StoreSettingRead])
@@ -247,4 +290,5 @@ def admin_update_setting(key: str, payload: StoreSettingUpdate, db: Session = De
         setattr(setting, field, value)
     db.commit()
     db.refresh(setting)
+    create_audit_log(db, current_admin.id, "update", "setting", key)
     return setting

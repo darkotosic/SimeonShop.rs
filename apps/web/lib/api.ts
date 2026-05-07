@@ -13,6 +13,7 @@ export class ApiError extends Error {
 }
 
 type ApiFetchOptions = RequestInit & { revalidate?: number; token?: string; publicGet?: boolean };
+type AdminFetchOptions = RequestInit & { revalidate?: number };
 
 export async function apiFetch<T>(path: string, init: ApiFetchOptions = {}): Promise<T> {
   const method = init.method ?? 'GET';
@@ -48,8 +49,9 @@ export type Product = {
 };
 export type ProductListResponse = { items: Product[]; total: number; page: number; page_size: number; pages: number };
 export type CartLine = { lineId: string; productId: number; variantId?: number; name: string; slug: string; imageUrl?: string | null; sku?: string | null; variantLabel?: string; unitPriceCents: number; quantity: number; stockQuantity: number; currency: string };
-export type GuestCheckoutPayload = { customer_name: string; customer_email?: string; customer_phone: string; shipping_city: string; shipping_postal_code: string; shipping_address: string; note?: string; items: { product_id: number; variant_id?: number; quantity: number }[] };
-export type Order = { id: number; order_number: string; status: string; total_cents: number; currency: string; customer_name: string; customer_email?: string | null; customer_phone: string; shipping_city: string; shipping_postal_code: string; shipping_address: string; note?: string | null; created_at: string; items: { id: number; product_name: string; quantity: number; total_price_cents: number }[] };
+export type GuestCheckoutPayload = { customer_name: string; customer_email?: string; customer_phone: string; shipping_city: string; shipping_postal_code: string; shipping_address: string; note?: string; idempotency_key?: string; items: { product_id: number; variant_id?: number; quantity: number }[] };
+export type OrderStatusEvent = { id: number; old_status?: string | null; new_status: string; actor_user_id?: number | null; note?: string | null; created_at: string };
+export type Order = { id: number; order_number: string; status: string; total_cents: number; currency: string; customer_name: string; customer_email?: string | null; customer_phone: string; shipping_city: string; shipping_postal_code: string; shipping_address: string; note?: string | null; idempotency_key?: string | null; confirmed_at?: string | null; packed_at?: string | null; shipped_at?: string | null; delivered_at?: string | null; cancelled_at?: string | null; internal_note?: string | null; created_at: string; updated_at?: string; status_events?: OrderStatusEvent[]; items: { id: number; product_name: string; quantity: number; total_price_cents: number }[] };
 export type AdminSummary = { new_orders: number; active_products: number; out_of_stock_products: number; latest_orders: Order[] };
 
 const paramsToQuery = (params: Record<string, string | number | undefined>) => {
@@ -63,13 +65,20 @@ export const getProducts = (params: Record<string, string | number | undefined> 
 export const getProduct = (slug: string) => apiFetch<Product>(`/api/v1/products/${encodeURIComponent(slug)}`, { publicGet: true });
 export const getCategories = () => apiFetch<Category[]>('/api/v1/categories/', { publicGet: true });
 export const createGuestOrder = (payload: GuestCheckoutPayload) => apiFetch<Order>('/api/v1/orders/guest-checkout', { method: 'POST', body: JSON.stringify(payload) });
-export const adminLogin = async (email: string, password: string) => {
-  const body = new URLSearchParams({ username: email, password });
-  return apiFetch<{ access_token: string; token_type: string }>('/api/v1/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body });
-};
-export const getAdminSummary = (token: string) => apiFetch<AdminSummary>('/api/v1/admin/summary', { token, publicGet: false });
-export const getAdminOrders = (token: string) => apiFetch<Order[]>('/api/v1/admin/orders', { token, publicGet: false });
-export const updateAdminOrderStatus = (token: string, orderId: number, status: string) => apiFetch<Order>(`/api/v1/admin/orders/${orderId}/status`, { method: 'PATCH', token, body: JSON.stringify({ status }) });
+export async function adminFetch<T>(path: string, init: AdminFetchOptions = {}): Promise<T> {
+  const method = init.method ?? 'GET';
+  const headers = new Headers(init.headers);
+  if (!headers.has('Content-Type') && method !== 'GET') headers.set('Content-Type', 'application/json');
+  const response = await fetch(`/api/admin/proxy/api/v1/admin${path}`, { ...init, headers, cache: 'no-store' });
+  if (!response.ok) { let details: unknown; try { details = await response.json(); } catch { details = await response.text(); } throw new ApiError(`Admin request failed with status ${response.status}`, response.status, details); }
+  if (response.status === 204) return undefined as T;
+  return response.json() as Promise<T>;
+}
+export const adminLogin = (email: string, password: string) => fetch('/api/admin/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) }).then(async (response) => { if (!response.ok) { let details: unknown; try { details = await response.json(); } catch { details = await response.text(); } throw new ApiError('Admin login failed', response.status, details); } return response.json() as Promise<{ ok: boolean; token_type: string }>; });
+export const adminLogout = () => fetch('/api/admin/logout', { method: 'POST' });
+export const getAdminSummary = () => adminFetch<AdminSummary>('/summary');
+export const getAdminOrders = () => adminFetch<Order[]>('/orders');
+export const updateAdminOrderStatus = (orderId: number, status: string) => adminFetch<Order>(`/orders/${orderId}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
 
 export type HealthResponse = { status: string; message: string; version: string; environment: string };
 
@@ -80,20 +89,20 @@ export type AdminProductVariantPayload = { sku?: string | null; size?: string | 
 export type StoreSetting = { id: number; key: string; value?: string | null; value_type: string; is_public: boolean; created_at: string; updated_at: string };
 export type StoreSettingPayload = { value?: string | null; value_type?: string; is_public?: boolean };
 
-export const getAdminProducts = (token: string, params: Record<string, string | number | undefined> = {}) => apiFetch<ProductListResponse>(`/api/v1/admin/products${paramsToQuery(params)}`, { token, publicGet: false });
-export const createAdminProduct = (token: string, payload: AdminProductPayload) => apiFetch<Product>('/api/v1/admin/products', { method: 'POST', token, body: JSON.stringify(payload) });
-export const updateAdminProduct = (token: string, productId: number, payload: AdminProductPayload) => apiFetch<Product>(`/api/v1/admin/products/${productId}`, { method: 'PATCH', token, body: JSON.stringify(payload) });
-export const deleteAdminProduct = (token: string, productId: number) => apiFetch<void>(`/api/v1/admin/products/${productId}`, { method: 'DELETE', token });
-export const getAdminCategories = (token: string) => apiFetch<Category[]>('/api/v1/admin/categories', { token, publicGet: false });
-export const createAdminCategory = (token: string, payload: AdminCategoryPayload) => apiFetch<Category>('/api/v1/admin/categories', { method: 'POST', token, body: JSON.stringify(payload) });
-export const updateAdminCategory = (token: string, categoryId: number, payload: AdminCategoryPayload) => apiFetch<Category>(`/api/v1/admin/categories/${categoryId}`, { method: 'PATCH', token, body: JSON.stringify(payload) });
-export const deleteAdminCategory = (token: string, categoryId: number) => apiFetch<void>(`/api/v1/admin/categories/${categoryId}`, { method: 'DELETE', token });
-export const createAdminProductImage = (token: string, productId: number, payload: AdminProductImagePayload) => apiFetch<ProductImage>(`/api/v1/admin/products/${productId}/images`, { method: 'POST', token, body: JSON.stringify(payload) });
-export const updateAdminProductImage = (token: string, productId: number, imageId: number, payload: AdminProductImagePayload) => apiFetch<ProductImage>(`/api/v1/admin/products/${productId}/images/${imageId}`, { method: 'PATCH', token, body: JSON.stringify(payload) });
-export const deleteAdminProductImage = (token: string, productId: number, imageId: number) => apiFetch<void>(`/api/v1/admin/products/${productId}/images/${imageId}`, { method: 'DELETE', token });
-export const setPrimaryAdminProductImage = (token: string, productId: number, imageId: number) => apiFetch<ProductImage>(`/api/v1/admin/products/${productId}/images/${imageId}/primary`, { method: 'PATCH', token });
-export const createAdminProductVariant = (token: string, productId: number, payload: AdminProductVariantPayload) => apiFetch<ProductVariant>(`/api/v1/admin/products/${productId}/variants`, { method: 'POST', token, body: JSON.stringify(payload) });
-export const updateAdminProductVariant = (token: string, productId: number, variantId: number, payload: AdminProductVariantPayload) => apiFetch<ProductVariant>(`/api/v1/admin/products/${productId}/variants/${variantId}`, { method: 'PATCH', token, body: JSON.stringify(payload) });
-export const deleteAdminProductVariant = (token: string, productId: number, variantId: number) => apiFetch<ProductVariant>(`/api/v1/admin/products/${productId}/variants/${variantId}`, { method: 'DELETE', token });
-export const getAdminSettings = (token: string) => apiFetch<StoreSetting[]>('/api/v1/admin/settings', { token, publicGet: false });
-export const updateAdminSetting = (token: string, key: string, payload: StoreSettingPayload) => apiFetch<StoreSetting>(`/api/v1/admin/settings/${encodeURIComponent(key)}`, { method: 'PATCH', token, body: JSON.stringify(payload) });
+export const getAdminProducts = (params: Record<string, string | number | undefined> = {}) => adminFetch<ProductListResponse>(`/products${paramsToQuery(params)}`);
+export const createAdminProduct = (payload: AdminProductPayload) => adminFetch<Product>('/products', { method: 'POST', body: JSON.stringify(payload) });
+export const updateAdminProduct = (productId: number, payload: AdminProductPayload) => adminFetch<Product>(`/products/${productId}`, { method: 'PATCH', body: JSON.stringify(payload) });
+export const deleteAdminProduct = (productId: number) => adminFetch<void>(`/products/${productId}`, { method: 'DELETE' });
+export const getAdminCategories = () => adminFetch<Category[]>('/categories');
+export const createAdminCategory = (payload: AdminCategoryPayload) => adminFetch<Category>('/categories', { method: 'POST', body: JSON.stringify(payload) });
+export const updateAdminCategory = (categoryId: number, payload: AdminCategoryPayload) => adminFetch<Category>(`/categories/${categoryId}`, { method: 'PATCH', body: JSON.stringify(payload) });
+export const deleteAdminCategory = (categoryId: number) => adminFetch<void>(`/categories/${categoryId}`, { method: 'DELETE' });
+export const createAdminProductImage = (productId: number, payload: AdminProductImagePayload) => adminFetch<ProductImage>(`/products/${productId}/images`, { method: 'POST', body: JSON.stringify(payload) });
+export const updateAdminProductImage = (productId: number, imageId: number, payload: AdminProductImagePayload) => adminFetch<ProductImage>(`/products/${productId}/images/${imageId}`, { method: 'PATCH', body: JSON.stringify(payload) });
+export const deleteAdminProductImage = (productId: number, imageId: number) => adminFetch<void>(`/products/${productId}/images/${imageId}`, { method: 'DELETE' });
+export const setPrimaryAdminProductImage = (productId: number, imageId: number) => adminFetch<ProductImage>(`/products/${productId}/images/${imageId}/primary`, { method: 'PATCH' });
+export const createAdminProductVariant = (productId: number, payload: AdminProductVariantPayload) => adminFetch<ProductVariant>(`/products/${productId}/variants`, { method: 'POST', body: JSON.stringify(payload) });
+export const updateAdminProductVariant = (productId: number, variantId: number, payload: AdminProductVariantPayload) => adminFetch<ProductVariant>(`/products/${productId}/variants/${variantId}`, { method: 'PATCH', body: JSON.stringify(payload) });
+export const deleteAdminProductVariant = (productId: number, variantId: number) => adminFetch<ProductVariant>(`/products/${productId}/variants/${variantId}`, { method: 'DELETE' });
+export const getAdminSettings = () => adminFetch<StoreSetting[]>('/settings');
+export const updateAdminSetting = (key: string, payload: StoreSettingPayload) => adminFetch<StoreSetting>(`/settings/${encodeURIComponent(key)}`, { method: 'PATCH', body: JSON.stringify(payload) });

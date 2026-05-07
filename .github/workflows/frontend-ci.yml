@@ -1,58 +1,37 @@
-name: Frontend CI/CD
+name: Frontend CI
 
 on:
   push:
     branches: [main, develop]
     paths:
       - 'apps/web/**'
-      - '.github/workflows/frontend-*.yml'
+      - '.github/workflows/frontend-ci.yml'
   pull_request:
     branches: [main, develop]
     paths:
       - 'apps/web/**'
+      - '.github/workflows/frontend-ci.yml'
 
 jobs:
   test-build:
     runs-on: ubuntu-latest
-    
-    strategy:
-      matrix:
-        node-version: [18.x]
-
     steps:
-      - uses: actions/checkout@v3
-      
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v3
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          node-version: ${{ matrix.node-version }}
-          cache: 'npm'
-          cache-dependency-path: 'apps/web/package-lock.json'
-
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: apps/web/package-lock.json
       - name: Install dependencies
-        run: |
-          cd apps/web
-          npm ci
-
+        working-directory: apps/web
+        run: npm ci
       - name: Lint
-        run: |
-          cd apps/web
-          npm run lint 2>/dev/null || echo "Linter not configured yet"
-
-      - name: Type Check
-        run: |
-          cd apps/web
-          npm run type-check 2>/dev/null || echo "Type checker not configured yet"
-
+        working-directory: apps/web
+        run: npm run lint
+      - name: Type check
+        working-directory: apps/web
+        run: npm run type-check
       - name: Build
-        run: |
-          cd apps/web
-          npm run build
-
-      - name: Upload build artifacts
-        if: success()
-        uses: actions/upload-artifact@v3
-        with:
-          name: frontend-build
-          path: apps/web/.next
-          retention-days: 7
+        working-directory: apps/web
+        run: npm run build

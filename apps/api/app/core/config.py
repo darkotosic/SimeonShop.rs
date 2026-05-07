@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     API_PREFIX: str = "/api/v1"
     APP_NAME: str = "SimeonShop API"
     APP_ENV: str = "development"
-    PROJECT_VERSION: str = "0.2.0"
+    PROJECT_VERSION: str = "0.3.0"
 
     HOST: str = "0.0.0.0"
     PORT: int = 8000
@@ -17,15 +17,25 @@ class Settings(BaseSettings):
     ALLOWED_ORIGINS: str = "http://localhost:3000,http://127.0.0.1:3000"
     FRONTEND_URL: str = "http://localhost:3000"
 
-    DATABASE_URL: str = "postgresql://user:password@localhost:5432/simeonshop"
+    DATABASE_URL: str = "sqlite:///./simeonshop.db"
 
     JWT_SECRET: str = "change-me-in-production"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 1440
     ADMIN_EMAIL: str = "admin@simeonshop.rs"
+    ALLOW_PUBLIC_REGISTRATION: bool = False
+    BOOTSTRAP_ADMIN_TOKEN: str | None = None
+
+    SMTP_HOST: str | None = None
+    SMTP_PORT: int = 587
+    SMTP_USERNAME: str | None = None
+    SMTP_PASSWORD: str | None = None
+    SMTP_FROM_EMAIL: str | None = None
+    SMTP_FROM_NAME: str = "Simeon Shop"
 
     RATE_LIMIT_DEFAULT: str = "120/minute"
     RATE_LIMIT_AUTH: str = "10/minute"
+    RATE_LIMIT_CHECKOUT: str = "5/minute"
     LOG_LEVEL: str = "INFO"
 
     model_config = SettingsConfigDict(

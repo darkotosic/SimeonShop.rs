@@ -28,7 +28,7 @@ export default async function HomePage() {
                 Pogledaj proizvode
               </Link>
               <Link href="/checkout" className="border border-white/40 px-5 py-3 text-sm font-semibold text-white">
-                Poruci odmah
+                Poruči odmah
               </Link>
             </div>
           </div>
@@ -38,7 +38,7 @@ export default async function HomePage() {
               <p className="mt-2 text-2xl font-bold">{apiStatus}</p>
             </div>
             <div className="grid grid-cols-2 gap-4 text-sm">
-              {['Brza dostava', 'Sigurna kupovina', 'Kvalitetan materijal', 'Jednostavna porudzbina'].map((item) => (
+              {['Brza dostava', 'Sigurna kupovina', 'Kvalitetan materijal', 'Jednostavna porudžbina'].map((item) => (
                 <div key={item} className="border border-white/15 bg-white/10 p-4 font-semibold">
                   {item}
                 </div>

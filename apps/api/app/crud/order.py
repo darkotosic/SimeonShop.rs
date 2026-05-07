@@ -7,7 +7,8 @@ from sqlalchemy.orm import Session, selectinload
 from app.models.cart import Cart, CartItem
 from app.models.order import Order, OrderItem
 from app.models.product import Product
-from app.schemas.order import CheckoutCreate
+from app.models.product_variant import ProductVariant
+from app.schemas.order import CheckoutCreate, GuestCheckoutCreate
 
 
 def generate_order_number() -> str:
@@ -107,3 +108,83 @@ def update_order_status(db: Session, order: Order, status_value: str) -> Order:
     db.commit()
     db.refresh(order)
     return order
+
+
+def create_guest_order(db: Session, payload: GuestCheckoutCreate) -> Order:
+    total_cents = 0
+    order_lines: list[tuple[Product, ProductVariant | None, int, int]] = []
+
+    try:
+        for item in payload.items:
+            product_query = db.query(Product).filter(Product.id == item.product_id, Product.is_active.is_(True))
+            if db.bind and db.bind.dialect.name != "sqlite":
+                product_query = product_query.with_for_update()
+            product = product_query.first()
+            if not product:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Product is unavailable.")
+
+            variant = None
+            unit_price = product.price_cents
+            if item.variant_id is not None:
+                variant_query = db.query(ProductVariant).filter(
+                    ProductVariant.id == item.variant_id,
+                    ProductVariant.product_id == product.id,
+                    ProductVariant.is_active.is_(True),
+                )
+                if db.bind and db.bind.dialect.name != "sqlite":
+                    variant_query = variant_query.with_for_update()
+                variant = variant_query.first()
+                if not variant:
+                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Product variant is unavailable.")
+                if variant.stock_quantity < item.quantity:
+                    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Insufficient stock for {product.name}.")
+                unit_price = variant.price_cents if variant.price_cents is not None else product.price_cents
+            elif product.stock_quantity < item.quantity:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Insufficient stock for {product.name}.")
+
+            total_cents += unit_price * item.quantity
+            order_lines.append((product, variant, item.quantity, unit_price))
+
+        order = Order(
+            order_number=generate_order_number(),
+            user_id=None,
+            total_cents=total_cents,
+            customer_name=payload.customer_name,
+            customer_email=str(payload.customer_email) if payload.customer_email else None,
+            customer_phone=payload.customer_phone,
+            shipping_city=payload.shipping_city,
+            shipping_postal_code=payload.shipping_postal_code,
+            shipping_address=payload.shipping_address,
+            note=payload.note,
+        )
+        db.add(order)
+        db.flush()
+
+        for product, variant, quantity, unit_price in order_lines:
+            sku = variant.sku if variant and variant.sku else product.sku
+            suffix = []
+            if variant and variant.size:
+                suffix.append(variant.size)
+            if variant and variant.color:
+                suffix.append(variant.color)
+            product_name = product.name + (f" ({', '.join(suffix)})" if suffix else "")
+            db.add(OrderItem(
+                order_id=order.id,
+                product_id=product.id,
+                product_name=product_name,
+                product_sku=sku,
+                unit_price_cents=unit_price,
+                quantity=quantity,
+                total_price_cents=unit_price * quantity,
+            ))
+            if variant:
+                variant.stock_quantity -= quantity
+            else:
+                product.stock_quantity -= quantity
+
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+    return get_order_by_id(db, order.id) or order

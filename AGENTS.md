@@ -129,3 +129,12 @@ For every completed task, provide:
 - Environment variables needed
 - Manual QA checklist
 - Next recommended step
+
+## Additional Production Rules
+
+- Fake static product data must never be used as the final source of truth; public storefront data must come from API contracts.
+- Admin routes and admin UI data must be protected by backend admin authorization.
+- Checkout must persist customer order data and must not fail because optional email delivery is unavailable.
+- Every backend model/schema change must have an Alembic migration.
+- Every new endpoint must have a test or at least a smoke test.
+- CI must not swallow errors with `|| true`, echo-only fallbacks, or equivalent bypasses.

@@ -63,7 +63,15 @@ Using **Tailwind CSS** for utility-first styling:
 
 ```env
 # .env.local
+API_BASE_URL=http://localhost:8000
 NEXT_PUBLIC_API_BASE_URL=http://localhost:8000
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+NEXT_PUBLIC_BRAND_NAME=Simeon Shop
+NEXT_PUBLIC_DEFAULT_LOCALE=sr
+NEXT_PUBLIC_INSTAGRAM_URL=
+NEXT_PUBLIC_FACEBOOK_URL=
+NEXT_PUBLIC_CONTACT_EMAIL=
+NEXT_PUBLIC_LOGO_URL=
 ```
 
 ## 📝 Pages
@@ -128,7 +136,7 @@ vercel deploy
 
 ## 📖 Next.js Features Used
 
-- **Pages Router**: File-based routing
+- **App Router**: File-based routing
 - **TypeScript**: Full type support
 - **Image Optimization**: Built-in image component
 - **API Routes**: Backend integration
@@ -157,4 +165,4 @@ npm run dev -- -p 3001
 ---
 
 **Status**: Active Development
-**Last Updated**: January 2024
+**Last Updated**: May 2026

@@ -144,6 +144,11 @@ pytest --cov=app
 uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
+
+### Docker production start
+
+The production Docker image starts with `/app/start.sh`, which runs `alembic upgrade head` before launching Uvicorn with proxy headers. Keep Render/Docker start commands aligned with this behavior so migrations are not skipped.
+
 ### Production with Gunicorn
 ```bash
 pip install gunicorn

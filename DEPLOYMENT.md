@@ -1,301 +1,211 @@
 # Deployment Guide - SimeonShop.rs
 
-Complete guide for deploying SimeonShop.rs to production.
+Production deployment guide for the SimeonShop.rs storefront, admin dashboard, FastAPI API, and PostgreSQL database.
 
-## 📋 Pre-Deployment Checklist
+## Pre-deployment checklist
 
-- [ ] All tests passing
-- [ ] Code reviewed and approved
-- [ ] Environment variables configured
-- [ ] Database migrations completed
-- [ ] Security audit completed
-- [ ] Performance optimizations done
-- [ ] Monitoring and logging configured
+- [ ] All backend checks pass: `python -m compileall app`, `pytest`, `alembic upgrade head`.
+- [ ] All frontend checks pass: `npm ci`, `npm run lint`, `npm run type-check`, `npm run build`.
+- [ ] Netlify environment variables are configured.
+- [ ] Render environment variables are configured.
+- [ ] Render PostgreSQL is attached and backed up before migrations.
+- [ ] Admin bootstrap token is temporary and removed after the initial admin account is created.
+- [ ] Sentry DSN is set only if error tracking is enabled.
 
-## 🌐 Frontend Deployment
+## Frontend deployment: Netlify
 
-### Option 1: Netlify (Recommended)
+Netlify is the primary frontend target for `simeonshop.rs`.
 
-#### Setup
-1. Push code to GitHub
-2. Sign up at [netlify.com](https://netlify.com)
-3. Connect GitHub repository
-4. Netlify auto-detects `netlify.toml` configuration
+### Build configuration
 
-#### Configuration
+The repository includes `netlify.toml` with the production build settings:
+
 ```toml
 [build]
-publish = "apps/web/.next"
-command = "cd apps/web && npm install && npm run build"
+base = "apps/web"
+command = "npm run build"
+publish = ".next"
 
 [build.environment]
-NODE_VERSION = "18"
-NEXT_PUBLIC_API_BASE_URL = "https://api.simeonshop.rs"
+NODE_VERSION = "22"
+NEXT_PUBLIC_SITE_URL = "https://simeonshop.rs"
+NEXT_PUBLIC_BRAND_NAME = "Simeon Shop"
+NEXT_PUBLIC_DEFAULT_LOCALE = "sr"
+
+[[plugins]]
+package = "@netlify/plugin-nextjs"
 ```
 
-#### Deploy
-```bash
-# Automatic on push to main
-git push origin main
+The Next.js Netlify plugin is intentionally declared in `apps/web/package.json` so Netlify installs a deterministic dependency during `npm ci`.
 
-# Or manual CLI deployment
-netlify deploy --prod
-```
+### Required Netlify environment variables
 
-### Option 2: Vercel
+Configure these in Netlify Site settings. Do not hardcode the Render URL in `netlify.toml`.
 
-1. Sign up at [vercel.com](https://vercel.com)
-2. Import repository
-3. Configure environment variables
-4. Deploy
-
-```bash
-npm i -g vercel
-vercel --prod
-```
-
-### Option 3: Traditional Server (AWS, DigitalOcean, Linode)
-
-```bash
-# Build
-cd apps/web
-npm run build
-
-# Upload .next directory to server
-scp -r .next user@server:/app/
-
-# Install dependencies on server
-npm install --production
-
-# Start with PM2
-pm2 start "npm start" --name "simeonshop-web"
-```
-
-## 🔧 Backend Deployment
-
-### Option 1: Render (Recommended)
-
-1. Create a Render Web Service from the GitHub repository.
-2. Set the root directory to `apps/api`.
-3. Use Python 3.12 and install with `pip install -r requirements.txt`.
-4. Configure the start command: `uvicorn app.main:app --host 0.0.0.0 --port $PORT`.
-5. Attach a Render PostgreSQL database and set `DATABASE_URL` from Render.
-6. Run `alembic upgrade head` during release/migration workflow before serving production traffic.
-
-### Option 2: DigitalOcean App Platform
-
-1. Connect GitHub
-2. Select "Python" as environment
-3. Set environment variables
-4. Configure startup command: `uvicorn app.main:app --host 0.0.0.0`
-5. Deploy
-
-### Option 3: Docker + Docker Compose
-
-```bash
-# Build images
-docker-compose build
-
-# Push to registry
-docker tag simeonshop-web your-registry/simeonshop-web:latest
-docker push your-registry/simeonshop-web:latest
-
-docker tag simeonshop-api your-registry/simeonshop-api:latest
-docker push your-registry/simeonshop-api:latest
-
-# Deploy to production server
-# Update docker-compose.yml with image references
-docker-compose -f docker-compose.prod.yml up -d
-```
-
-## 🔒 Environment Variables
-
-### Frontend (.env.production)
 ```env
-NEXT_PUBLIC_API_BASE_URL=https://api.simeonshop.rs
+API_BASE_URL=https://tvoj-render-backend.onrender.com
+NEXT_PUBLIC_API_BASE_URL=https://tvoj-render-backend.onrender.com
+NEXT_PUBLIC_SITE_URL=https://simeonshop.rs
+NEXT_PUBLIC_BRAND_NAME=Simeon Shop
+NEXT_PUBLIC_DEFAULT_LOCALE=sr
+NEXT_PUBLIC_INSTAGRAM_URL=
+NEXT_PUBLIC_FACEBOOK_URL=
+NEXT_PUBLIC_CONTACT_EMAIL=
+NEXT_PUBLIC_LOGO_URL=
 ```
 
-### Backend (.env.production)
+Use the actual Render service URL for `API_BASE_URL` and `NEXT_PUBLIC_API_BASE_URL`.
+
+### Deploy
+
+1. Push the repository to GitHub.
+2. Create a Netlify site from the repository.
+3. Confirm Netlify is using `apps/web` as the base directory.
+4. Confirm the build command is `npm run build` and publish directory is `.next`.
+5. Configure the environment variables above.
+6. Deploy and verify the storefront, product pages, cart, checkout, and legal pages.
+
+## Backend deployment: Render
+
+Render is the primary backend target. The backend must run database migrations before starting Uvicorn.
+
+### Recommended Docker deployment
+
+The API Docker image uses `/app/start.sh` as the container command. That script runs:
+
+```sh
+set -e
+alembic upgrade head
+exec uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}" --proxy-headers
+```
+
+This prevents production from serving a newer application against an unmigrated database.
+
+### Render service configuration
+
+1. Create a Render PostgreSQL database.
+2. Create a Render Web Service from the GitHub repository.
+3. Set the root directory to `apps/api`.
+4. Use Docker deployment with `apps/api/Dockerfile`, or use a native Python service with Python 3.12.
+5. If using Docker, keep the Docker `CMD ["/app/start.sh"]`.
+6. If using a native Python service, the Render start command must execute migrations before Uvicorn:
+
+```bash
+alembic upgrade head && uvicorn app.main:app --host 0.0.0.0 --port $PORT --proxy-headers
+```
+
+### Required Render environment variables
+
 ```env
 APP_ENV=production
-ALLOWED_ORIGINS=https://simeonshop.rs,https://www.simeonshop.rs
+APP_NAME=SimeonShop API
+PROJECT_VERSION=0.3.0
+API_PREFIX=/api/v1
 HOST=0.0.0.0
 PORT=8000
-DATABASE_URL=postgresql://user:password@host/dbname
-SECRET_KEY=your-secret-key-here
-```
-
-## 🔐 Security Considerations
-
-### HTTPS/SSL
-- Enable HTTPS on all endpoints
-- Use Let's Encrypt for free certificates
-- Redirect HTTP to HTTPS
-
-### CORS
-Update `ALLOWED_ORIGINS` for production domains:
-```env
 ALLOWED_ORIGINS=https://simeonshop.rs,https://www.simeonshop.rs
+FRONTEND_URL=https://simeonshop.rs
+DATABASE_URL=postgresql://user:password@host/dbname
+JWT_SECRET=replace-with-a-long-random-secret
+JWT_ALGORITHM=HS256
+ACCESS_TOKEN_EXPIRE_MINUTES=480
+ADMIN_EMAIL=admin@simeonshop.rs
+ALLOW_PUBLIC_REGISTRATION=false
+BOOTSTRAP_ADMIN_TOKEN=temporary-bootstrap-token-remove-after-admin-create
+RATE_LIMIT_DEFAULT=120/minute
+RATE_LIMIT_AUTH=10/minute
+RATE_LIMIT_CHECKOUT=5/minute
+LOG_LEVEL=INFO
+SMTP_HOST=
+SMTP_PORT=587
+SMTP_USERNAME=
+SMTP_PASSWORD=
+SMTP_FROM_EMAIL=
+SMTP_FROM_NAME=Simeon Shop
+MEDIA_PROVIDER=external_url
+SENTRY_DSN=
+SENTRY_ENVIRONMENT=production
 ```
+
+Use `JWT_SECRET` for token signing. Remove or rotate `BOOTSTRAP_ADMIN_TOKEN` immediately after creating the first admin account.
+
+## Local Docker Compose
+
+Local development can be started with:
+
+```bash
+docker compose up --build
+```
+
+The compose stack uses:
+
+- PostgreSQL 16 on `localhost:5432`.
+- Backend on `localhost:8000`.
+- Frontend on `localhost:3000`.
+- Internal server-side frontend API base URL: `http://backend:8000`.
+
+## Security considerations
+
+### HTTPS and domains
+
+- Enable HTTPS for Netlify and Render.
+- Redirect all public traffic to `https://simeonshop.rs`.
+- Include both `https://simeonshop.rs` and `https://www.simeonshop.rs` in backend CORS only if both domains are active.
+
+### Secrets
+
+- Store credentials only in Netlify/Render environment variables.
+- Never commit JWT secrets, database URLs, SMTP passwords, Cloudinary credentials, or bootstrap tokens.
+- Rotate secrets after suspected exposure.
 
 ### Database
-- Use strong passwords
-- Enable SSL connections
-- Regular backups
-- Restrict access by IP
 
-### API Keys & Secrets
-- Use environment variables
-- Rotate keys regularly
-- Never commit to repository
-- Use secret management tools
+- Use Render PostgreSQL with SSL enabled by Render.
+- Enable automated backups.
+- Take a manual backup before production migrations.
+- Restrict direct access to production credentials.
 
-## 📊 Monitoring & Logging
+## Monitoring and logging
 
-### Frontend
-- Sentry for error tracking
-- Google Analytics for usage
-- Lighthouse CI for performance
+- Set `SENTRY_DSN` only when Sentry is configured.
+- Leave `SENTRY_DSN` empty to run without Sentry.
+- Do not log `DATABASE_URL`, JWTs, SMTP credentials, or bootstrap tokens.
+- Check Render logs after every deploy and migration.
 
-### Backend
-- Sentry for error tracking
-- Application logging
-- Database query logging
-- Request/response logging
+## Rollback procedure
 
-### Setup Sentry
-```python
-# app/main.py
-import sentry_sdk
-from sentry_sdk.integrations.fastapi import FastApiIntegration
+### Frontend: Netlify
 
-sentry_sdk.init(
-    dsn=os.getenv("SENTRY_DSN"),
-    integrations=[FastApiIntegration()],
-    environment=os.getenv("ENVIRONMENT"),
-)
-```
+1. Open Netlify deploy history.
+2. Select the last known-good deploy.
+3. Click rollback/redeploy.
+4. Verify homepage, product listing, product detail, cart, checkout, and legal routes.
 
-## 🚀 Scaling Strategy
+### Backend: Render
 
-### Phase 1: MVP (Current Setup)
-- Netlify: Frontend
-- Render: Backend
-- Render PostgreSQL: Database
+1. Confirm whether a database migration was applied.
+2. If schema changed, restore from a pre-migration backup or apply a tested downgrade procedure before rolling back code.
+3. Redeploy the last known-good Render image or commit.
+4. Verify `/api/v1/health`.
+5. Check Render logs for migration and startup errors.
 
-### Phase 2: Growth
-- Netlify Pro: CDN, custom domain
-- Render autoscaling or dedicated server: Backend
-- Render PostgreSQL: Database
+## Production verification commands
 
-### Phase 3: Enterprise
-- CloudFlare: CDN & DDoS protection
-- Kubernetes: Container orchestration
-- Managed database: AWS RDS, Google Cloud SQL
-- Load balancing: Nginx, AWS ALB
+Backend:
 
-## 🔄 CI/CD Pipeline
-
-### GitHub Actions Example
-```yaml
-name: Deploy to Production
-
-on:
-  push:
-    branches: [main]
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      
-      - name: Deploy Frontend
-        run: netlify deploy --prod
-        env:
-          NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
-      
-      - name: Deploy Backend
-        run: |
-          git push heroku main
-        env:
-          HEROKU_AUTH_TOKEN: ${{ secrets.HEROKU_AUTH_TOKEN }}
-```
-
-## 📈 Performance Optimization
-
-### Frontend
 ```bash
-# Analyze bundle
-npm run analyze
-
-# Results suggest:
-# - Code splitting
-# - Image optimization
-# - Font loading strategy
+cd apps/api
+python -m compileall app
+pytest
+alembic upgrade head
 ```
 
-### Backend
-```python
-# Add caching
-from fastapi_cache2 import FastAPICache2
-from fastapi_cache2.backends.redis import RedisBackend
+Frontend:
 
-# Add compression
-from fastapi.middleware.gzip import GZipMiddleware
-
-app.add_middleware(GZipMiddleware, minimum_size=1000)
+```bash
+cd apps/web
+npm ci
+npm run lint
+npm run type-check
+npm run build
 ```
-
-## 🚨 Rollback Procedure
-
-### Frontend (Netlify)
-1. Go to Deploy History
-2. Click "Rollback" on previous deployment
-3. Confirm
-
-### Backend (Render)
-1. Open the Render service deploy history.
-2. Redeploy the last known-good commit or roll back to the previous image.
-3. Verify health checks and logs after rollback.
-
-## 📋 Post-Deployment
-
-- [ ] Test all features in production
-- [ ] Verify API connectivity
-- [ ] Check error monitoring
-- [ ] Monitor performance metrics
-- [ ] Send notifications to team
-- [ ] Document deployment
-- [ ] Plan next updates
-
-## 🐛 Troubleshooting
-
-### Frontend not loading
-- Check Netlify deployment logs
-- Verify environment variables
-- Clear browser cache (Ctrl+Shift+Del)
-- Check CORS headers in API response
-
-### API not responding
-- Check server logs: `heroku logs --tail`
-- Verify database connection
-- Check environment variables
-- Restart application
-
-### Slow performance
-- Check server resources
-- Review database queries
-- Enable caching
-- Implement CDN
-
-## 📞 Support
-
-- Platform documentation: See individual platform docs
-- GitHub Issues: Report problems
-- Email: ops@simeonshop.rs
-
----
-
-**Last Updated**: January 2024
-**Maintained by**: DevOps Team

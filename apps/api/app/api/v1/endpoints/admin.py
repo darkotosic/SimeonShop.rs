@@ -1,22 +1,65 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session, selectinload
+from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_admin, get_db
 from app.crud.category import create_category, get_categories, get_category_by_id, soft_delete_category, update_category
 from app.crud.order import get_order_by_id, get_orders, update_order_status
 from app.crud.product import create_product, delete_product, get_product_by_id, get_products, update_product
+from app.crud.product_media import (
+    create_product_image,
+    create_product_variant,
+    delete_product_image,
+    delete_product_variant,
+    set_primary_product_image,
+    update_product_image,
+    update_product_variant,
+)
 from app.models.order import Order
 from app.models.product import Product
+from app.models.product_image import ProductImage
+from app.models.product_variant import ProductVariant
 from app.models.store_setting import StoreSetting
 from app.models.user import User
 from app.schemas.category import CategoryCreate, CategoryRead, CategoryUpdate
 from app.schemas.order import OrderRead, OrderStatusUpdate
-from app.schemas.product import ProductCreate, ProductListResponse, ProductRead, ProductUpdate
+from app.schemas.product import (
+    ProductCreate,
+    ProductImageCreate,
+    ProductImageRead,
+    ProductImageUpdate,
+    ProductListResponse,
+    ProductRead,
+    ProductUpdate,
+    ProductVariantCreate,
+    ProductVariantRead,
+    ProductVariantUpdate,
+)
 from app.schemas.store import StoreSettingRead, StoreSettingUpdate
 
 router = APIRouter()
+
+
+def _get_product_or_404(db: Session, product_id: int) -> Product:
+    product = get_product_by_id(db, product_id)
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found.")
+    return product
+
+
+def _get_product_image_or_404(db: Session, product_id: int, image_id: int) -> ProductImage:
+    image = db.query(ProductImage).filter(ProductImage.id == image_id, ProductImage.product_id == product_id).first()
+    if not image:
+        raise HTTPException(status_code=404, detail="Product image not found.")
+    return image
+
+
+def _get_product_variant_or_404(db: Session, product_id: int, variant_id: int) -> ProductVariant:
+    variant = db.query(ProductVariant).filter(ProductVariant.id == variant_id, ProductVariant.product_id == product_id).first()
+    if not variant:
+        raise HTTPException(status_code=404, detail="Product variant not found.")
+    return variant
 
 
 @router.get("/summary")
@@ -58,6 +101,94 @@ def admin_delete_product(product_id: int, db: Session = Depends(get_db), current
         raise HTTPException(status_code=404, detail="Product not found.")
     delete_product(db, product)
     return None
+
+
+@router.post("/products/{product_id}/images", response_model=ProductImageRead, status_code=status.HTTP_201_CREATED)
+def admin_create_product_image(
+    product_id: int,
+    payload: ProductImageCreate,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin),
+):
+    _get_product_or_404(db, product_id)
+    return create_product_image(db, product_id, payload)
+
+
+@router.patch("/products/{product_id}/images/{image_id}", response_model=ProductImageRead)
+def admin_update_product_image(
+    product_id: int,
+    image_id: int,
+    payload: ProductImageUpdate,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin),
+):
+    image = _get_product_image_or_404(db, product_id, image_id)
+    return update_product_image(db, image, payload)
+
+
+@router.delete("/products/{product_id}/images/{image_id}", status_code=status.HTTP_204_NO_CONTENT)
+def admin_delete_product_image(
+    product_id: int,
+    image_id: int,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin),
+):
+    image = _get_product_image_or_404(db, product_id, image_id)
+    delete_product_image(db, image)
+    return None
+
+
+@router.patch("/products/{product_id}/images/{image_id}/primary", response_model=ProductImageRead)
+def admin_set_primary_product_image(
+    product_id: int,
+    image_id: int,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin),
+):
+    image = _get_product_image_or_404(db, product_id, image_id)
+    return set_primary_product_image(db, image)
+
+
+@router.post("/products/{product_id}/variants", response_model=ProductVariantRead, status_code=status.HTTP_201_CREATED)
+def admin_create_product_variant(
+    product_id: int,
+    payload: ProductVariantCreate,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin),
+):
+    _get_product_or_404(db, product_id)
+    try:
+        return create_product_variant(db, product_id, payload)
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Product variant SKU already exists.") from exc
+
+
+@router.patch("/products/{product_id}/variants/{variant_id}", response_model=ProductVariantRead)
+def admin_update_product_variant(
+    product_id: int,
+    variant_id: int,
+    payload: ProductVariantUpdate,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin),
+):
+    variant = _get_product_variant_or_404(db, product_id, variant_id)
+    try:
+        return update_product_variant(db, variant, payload)
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Product variant SKU already exists.") from exc
+
+
+@router.delete("/products/{product_id}/variants/{variant_id}", response_model=ProductVariantRead)
+def admin_delete_product_variant(
+    product_id: int,
+    variant_id: int,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin),
+):
+    variant = _get_product_variant_or_404(db, product_id, variant_id)
+    return delete_product_variant(db, variant)
 
 
 @router.get("/orders", response_model=list[OrderRead])

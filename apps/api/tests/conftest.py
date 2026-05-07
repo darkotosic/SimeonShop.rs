@@ -10,6 +10,7 @@ os.environ.setdefault("DATABASE_URL", f"sqlite:///{tempfile.gettempdir()}/simeon
 os.environ.setdefault("JWT_SECRET", "test-secret-not-for-production")
 os.environ.setdefault("BOOTSTRAP_ADMIN_TOKEN", "test-bootstrap-token")
 os.environ.setdefault("ALLOW_PUBLIC_REGISTRATION", "false")
+os.environ.setdefault("RATE_LIMIT_CHECKOUT", "1000/minute")
 
 import pytest
 from sqlalchemy import create_engine

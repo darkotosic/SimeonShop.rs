@@ -4,13 +4,14 @@ import { useRouter } from 'next/navigation';
 import type { ReactNode } from 'react';
 import { adminLogout } from '@/lib/api';
 
-type AdminTab = 'overview' | 'orders' | 'products' | 'categories' | 'settings';
+type AdminTab = 'overview' | 'orders' | 'products' | 'categories' | 'settings' | 'audit';
 const tabs: { id: AdminTab; label: string }[] = [
   { id: 'overview', label: 'Pregled' },
   { id: 'orders', label: 'Porudžbine' },
   { id: 'products', label: 'Proizvodi' },
   { id: 'categories', label: 'Kategorije' },
   { id: 'settings', label: 'Podešavanja' },
+  { id: 'audit', label: 'Audit log' },
 ];
 
 export function AdminShell({ activeTab, onTabChange, children }: { activeTab: AdminTab; onTabChange: (tab: AdminTab) => void; children: ReactNode }) {

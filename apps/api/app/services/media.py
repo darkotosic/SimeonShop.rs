@@ -1,8 +1,14 @@
 from urllib.parse import urlparse
 
+import cloudinary
+import cloudinary.uploader
+from fastapi import HTTPException, UploadFile, status
+
 from app.core.config import settings
 
 BLOCKED_SCHEMES = {"javascript", "data", "file"}
+ALLOWED_IMAGE_MIME_TYPES = {"image/jpeg", "image/png", "image/webp", "image/avif"}
+MAX_IMAGE_BYTES = 5 * 1024 * 1024
 
 
 def get_media_provider() -> str:
@@ -21,5 +27,35 @@ def validate_image_url(image_url: str) -> str:
     return value
 
 
+async def upload_product_image(file: UploadFile, product_id: int) -> str:
+    if file.content_type not in ALLOWED_IMAGE_MIME_TYPES:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Unsupported image type.")
+
+    content = await file.read()
+    if len(content) > MAX_IMAGE_BYTES:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Image is larger than 5MB.")
+
+    if get_media_provider() != "cloudinary":
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cloudinary media provider is not enabled.")
+    if not (settings.CLOUDINARY_CLOUD_NAME and settings.CLOUDINARY_API_KEY and settings.CLOUDINARY_API_SECRET):
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Cloudinary is not configured.")
+
+    cloudinary.config(
+        cloud_name=settings.CLOUDINARY_CLOUD_NAME,
+        api_key=settings.CLOUDINARY_API_KEY,
+        api_secret=settings.CLOUDINARY_API_SECRET,
+        secure=True,
+    )
+    result = cloudinary.uploader.upload(
+        content,
+        folder=f"simeonshop/products/{product_id}",
+        resource_type="image",
+    )
+    secure_url = result.get("secure_url")
+    if not secure_url:
+        raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail="Cloudinary upload did not return a secure URL.")
+    return str(secure_url)
+
+
 def create_signed_upload_placeholder() -> None:
-    raise NotImplementedError("Signed uploads will be implemented after Cloudinary or R2 is selected.")
+    raise NotImplementedError("Signed uploads will be implemented later if direct browser uploads are needed.")

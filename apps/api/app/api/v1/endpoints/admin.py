@@ -1,11 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_admin, get_db
 from app.crud.category import create_category, get_categories, get_category_by_id, soft_delete_category, update_category
-from app.crud.order import get_order_by_id, get_orders, update_order_status
+from app.crud.order import get_order_by_id, get_orders, update_order_internal_note, update_order_status
 from app.crud.product import create_product, delete_product, get_product_by_id, get_products, update_product
 from app.crud.product_media import (
     create_product_image,
@@ -23,7 +23,7 @@ from app.models.product_variant import ProductVariant
 from app.models.store_setting import StoreSetting
 from app.models.user import User
 from app.schemas.category import CategoryCreate, CategoryRead, CategoryUpdate
-from app.schemas.order import OrderRead, OrderStatusUpdate
+from app.schemas.order import OrderInternalNoteUpdate, OrderRead, OrderStatusUpdate
 from app.schemas.product import (
     ProductCreate,
     ProductImageCreate,
@@ -39,6 +39,7 @@ from app.schemas.product import (
 from app.schemas.store import StoreSettingRead, StoreSettingUpdate
 from app.models.audit_log import AuditLog
 from app.services.audit import create_audit_log
+from app.services.media import upload_product_image
 
 router = APIRouter()
 
@@ -120,6 +121,34 @@ def admin_create_product_image(
     _get_product_or_404(db, product_id)
     image = create_product_image(db, product_id, payload)
     create_audit_log(db, current_admin.id, "create", "product_image", image.id, {"product_id": product_id})
+    return image
+
+
+
+
+@router.post("/products/{product_id}/images/upload", response_model=ProductImageRead, status_code=status.HTTP_201_CREATED)
+async def admin_upload_product_image(
+    product_id: int,
+    file: UploadFile = File(...),
+    alt_text: str | None = Form(default=None),
+    sort_order: int = Form(default=0),
+    is_primary: bool = Form(default=False),
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin),
+):
+    _get_product_or_404(db, product_id)
+    image_url = await upload_product_image(file, product_id)
+    image = create_product_image(
+        db,
+        product_id,
+        ProductImageCreate(
+            image_url=image_url,
+            alt_text=alt_text,
+            sort_order=sort_order,
+            is_primary=is_primary,
+        ),
+    )
+    create_audit_log(db, current_admin.id, "upload", "product_image", image.id, {"product_id": product_id})
     return image
 
 
@@ -223,6 +252,18 @@ def admin_order_status(order_id: int, payload: OrderStatusUpdate, db: Session = 
         raise HTTPException(status_code=404, detail="Order not found.")
     updated = update_order_status(db, order, payload.status, actor_user_id=current_admin.id)
     create_audit_log(db, current_admin.id, "update_status", "order", order_id, {"status": payload.status})
+    return updated
+
+
+
+
+@router.patch("/orders/{order_id}/internal-note", response_model=OrderRead)
+def admin_order_internal_note(order_id: int, payload: OrderInternalNoteUpdate, db: Session = Depends(get_db), current_admin: User = Depends(get_current_admin)):
+    order = get_order_by_id(db, order_id)
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found.")
+    updated = update_order_internal_note(db, order, payload.internal_note)
+    create_audit_log(db, current_admin.id, "update_internal_note", "order", order_id)
     return updated
 
 

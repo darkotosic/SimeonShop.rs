@@ -8,6 +8,7 @@ from app.models.cart import Cart, CartItem
 from app.models.order import Order, OrderItem
 from app.models.order_status_event import OrderStatusEvent
 from app.models.product import Product
+from app.models.product_image import ProductImage
 from app.models.product_variant import ProductVariant
 from app.schemas.order import CheckoutCreate, GuestCheckoutCreate
 
@@ -122,7 +123,21 @@ def update_order_status(db: Session, order: Order, status_value: str, actor_user
     return get_order_by_id(db, order.id) or order
 
 
-def create_guest_order(db: Session, payload: GuestCheckoutCreate) -> Order:
+def _primary_image_url(product: Product) -> str | None:
+    images = sorted(product.images or [], key=lambda image: (not image.is_primary, image.sort_order, image.id))
+    if images:
+        return images[0].image_url
+    return product.image_url
+
+
+def _variant_label(variant: ProductVariant | None) -> str | None:
+    if not variant:
+        return None
+    parts = [part for part in [variant.size, variant.color] if part]
+    return " / ".join(parts) if parts else None
+
+
+def create_guest_order(db: Session, payload: GuestCheckoutCreate, customer_ip: str | None = None, user_agent: str | None = None) -> Order:
     if payload.idempotency_key:
         existing = db.query(Order).options(selectinload(Order.items), selectinload(Order.status_events)).filter(Order.idempotency_key == payload.idempotency_key).first()
         if existing:
@@ -133,7 +148,7 @@ def create_guest_order(db: Session, payload: GuestCheckoutCreate) -> Order:
 
     try:
         for item in payload.items:
-            product_query = db.query(Product).filter(Product.id == item.product_id, Product.is_active.is_(True))
+            product_query = db.query(Product).options(selectinload(Product.images)).filter(Product.id == item.product_id, Product.is_active.is_(True))
             if db.bind and db.bind.dialect.name != "sqlite":
                 product_query = product_query.with_for_update()
             product = product_query.first()
@@ -174,6 +189,10 @@ def create_guest_order(db: Session, payload: GuestCheckoutCreate) -> Order:
             shipping_address=payload.shipping_address,
             note=payload.note,
             idempotency_key=payload.idempotency_key,
+            accepted_terms_at=datetime.now(timezone.utc) if payload.accepted_terms else None,
+            customer_ip=customer_ip,
+            user_agent=user_agent[:500] if user_agent else None,
+            source=payload.source or "web",
         )
         db.add(order)
         db.flush()
@@ -189,11 +208,18 @@ def create_guest_order(db: Session, payload: GuestCheckoutCreate) -> Order:
             db.add(OrderItem(
                 order_id=order.id,
                 product_id=product.id,
+                variant_id=variant.id if variant else None,
                 product_name=product_name,
                 product_sku=sku,
+                product_slug=product.slug,
+                product_image_url=_primary_image_url(product),
+                variant_label=_variant_label(variant),
                 unit_price_cents=unit_price,
                 quantity=quantity,
                 total_price_cents=unit_price * quantity,
+                currency=product.currency,
+                discount_cents=0,
+                tax_cents=0,
             ))
             if variant:
                 variant.stock_quantity -= quantity
@@ -205,4 +231,11 @@ def create_guest_order(db: Session, payload: GuestCheckoutCreate) -> Order:
         db.rollback()
         raise
 
+    return get_order_by_id(db, order.id) or order
+
+
+def update_order_internal_note(db: Session, order: Order, internal_note: str | None) -> Order:
+    order.internal_note = internal_note
+    db.add(order)
+    db.commit()
     return get_order_by_id(db, order.id) or order

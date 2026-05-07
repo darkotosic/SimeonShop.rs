@@ -1,5 +1,7 @@
 from datetime import datetime
 
+from typing import Literal
+
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
@@ -20,12 +22,18 @@ class GuestCheckoutItem(BaseModel):
 
 
 class GuestCheckoutCreate(CheckoutCreate):
+    accepted_terms: Literal[True]
+    source: str | None = Field(default="web", max_length=80)
     idempotency_key: str | None = Field(default=None, max_length=120, pattern=r"^[A-Za-z0-9._:-]{8,120}$")
     items: list[GuestCheckoutItem] = Field(min_length=1, max_length=50)
 
 
 class OrderStatusUpdate(BaseModel):
     status: str = Field(pattern="^(new|confirmed|packed|shipped|delivered|cancelled)$")
+
+
+class OrderInternalNoteUpdate(BaseModel):
+    internal_note: str | None = None
 
 
 class OrderStatusEventRead(BaseModel):
@@ -49,6 +57,13 @@ class OrderItemRead(BaseModel):
     unit_price_cents: int
     quantity: int
     total_price_cents: int
+    variant_id: int | None = None
+    product_slug: str | None = None
+    product_image_url: str | None = None
+    variant_label: str | None = None
+    currency: str = "RSD"
+    discount_cents: int = 0
+    tax_cents: int = 0
 
 
 class OrderRead(BaseModel):
@@ -74,6 +89,10 @@ class OrderRead(BaseModel):
     delivered_at: datetime | None = None
     cancelled_at: datetime | None = None
     internal_note: str | None = None
+    accepted_terms_at: datetime | None = None
+    customer_ip: str | None = None
+    user_agent: str | None = None
+    source: str | None = "web"
     created_at: datetime
     updated_at: datetime
     items: list[OrderItemRead]

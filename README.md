@@ -87,3 +87,9 @@ npm run lint
 npm run type-check
 npm run build
 ```
+
+
+## Production operations
+
+- [Production runbook](docs/PRODUCTION_RUNBOOK.md)
+- [Launch checklist](docs/LAUNCH_CHECKLIST.md)

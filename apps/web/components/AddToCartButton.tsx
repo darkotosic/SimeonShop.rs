@@ -4,27 +4,25 @@ import { useState } from 'react';
 import type { Product, ProductVariant } from '@/lib/api';
 import { addToCart } from '@/lib/cart';
 
-export function AddToCartButton({ product, variants = product.variants }: { product: Product; variants?: ProductVariant[] }) {
-  const activeVariants = variants.filter((variant) => variant.is_active);
-  const [variantId, setVariantId] = useState<number | undefined>(activeVariants[0]?.id);
-  const selectedVariant = activeVariants.find((variant) => variant.id === variantId);
+export function AddToCartButton({ product, selectedVariant, requiresVariant = false }: { product: Product; selectedVariant?: ProductVariant; requiresVariant?: boolean }) {
+  const [added, setAdded] = useState(false);
   const stock = selectedVariant?.stock_quantity ?? product.effective_stock_quantity ?? product.stock_quantity;
+  const disabled = stock <= 0 || (requiresVariant && !selectedVariant);
 
   return (
-    <div className="space-y-3">
-      {activeVariants.length > 0 && (
-        <label className="block text-sm font-medium text-slate-700">
-          Veličina / boja
-          <select className="mt-2 w-full border border-slate-300 px-3 py-3" value={variantId} onChange={(event) => setVariantId(Number(event.target.value))}>
-            {activeVariants.map((variant) => (
-              <option key={variant.id} value={variant.id}>{[variant.size, variant.color].filter(Boolean).join(' / ') || variant.sku || `Varijanta ${variant.id}`}</option>
-            ))}
-          </select>
-        </label>
-      )}
-      <button disabled={stock <= 0} onClick={() => addToCart(product, selectedVariant, 1)} className="w-full bg-primary px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400">
-        {stock > 0 ? 'Dodaj u korpu' : 'Nema na stanju'}
+    <div className="space-y-2">
+      <button
+        disabled={disabled}
+        onClick={() => {
+          addToCart(product, selectedVariant, 1);
+          setAdded(true);
+          window.setTimeout(() => setAdded(false), 1800);
+        }}
+        className="w-full bg-primary px-4 py-3 text-sm font-semibold text-white disabled:cursor-not-allowed disabled:bg-slate-400"
+      >
+        {stock <= 0 ? 'Nema na stanju' : requiresVariant && !selectedVariant ? 'Izaberite veličinu/boju' : 'Dodaj u korpu'}
       </button>
+      {added && <p className="text-sm font-medium text-green-700">Dodato u korpu</p>}
     </div>
   );
 }

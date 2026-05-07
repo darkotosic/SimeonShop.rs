@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useEffect, useState } from 'react';
 import type { AdminSummary } from '@/lib/api';
 import { getAdminSummary } from '@/lib/api';
+import { AdminAuditLogsPanel } from './admin/AdminAuditLogsPanel';
 import { AdminCategoriesPanel } from './admin/AdminCategoriesPanel';
 import { AdminOrdersPanel } from './admin/AdminOrdersPanel';
 import { AdminProductsPanel } from './admin/AdminProductsPanel';
@@ -18,9 +19,9 @@ export function AdminDashboard() {
   useEffect(() => {
     getAdminSummary().then(setSummary).catch((error) => {
       if (error?.status === 401 || error?.status === 403) router.replace('/admin/login');
-      else console.error(error);
+      else setSummary(null);
     });
   }, [router]);
   if (!summary) return <div className="mt-8 border border-slate-200 bg-white p-6">Učitavanje admin podataka...</div>;
-  return <AdminShell activeTab={activeTab} onTabChange={setActiveTab}>{activeTab === 'overview' && <div className="grid gap-4 sm:grid-cols-3">{[['Nove porudžbine', summary.new_orders], ['Aktivni proizvodi', summary.active_products], ['Bez zaliha', summary.out_of_stock_products]].map(([label, value]) => <div key={label} className="border border-slate-200 bg-white p-5"><p className="text-sm text-slate-500">{label}</p><p className="mt-2 text-3xl font-bold text-primary">{value}</p></div>)}</div>}{activeTab === 'orders' && <AdminOrdersPanel />}{activeTab === 'products' && <AdminProductsPanel />}{activeTab === 'categories' && <AdminCategoriesPanel />}{activeTab === 'settings' && <AdminSettingsPanel />}</AdminShell>;
+  return <AdminShell activeTab={activeTab} onTabChange={setActiveTab}>{activeTab === 'overview' && <div className="grid gap-4 sm:grid-cols-3">{[['Nove porudžbine', summary.new_orders], ['Aktivni proizvodi', summary.active_products], ['Bez zaliha', summary.out_of_stock_products]].map(([label, value]) => <div key={label} className="border border-slate-200 bg-white p-5"><p className="text-sm text-slate-500">{label}</p><p className="mt-2 text-3xl font-bold text-primary">{value}</p></div>)}</div>}{activeTab === 'orders' && <AdminOrdersPanel />}{activeTab === 'products' && <AdminProductsPanel />}{activeTab === 'categories' && <AdminCategoriesPanel />}{activeTab === 'settings' && <AdminSettingsPanel />}{activeTab === 'audit' && <AdminAuditLogsPanel />}</AdminShell>;
 }

@@ -7,7 +7,7 @@ from app.schemas.product import ProductCreate
 
 def _order(db):
     product = create_product(db, ProductCreate(name="Status majica", slug="status-majica", price_cents=10000, stock_quantity=5))
-    return create_guest_order(db, GuestCheckoutCreate(customer_name="Kupac Test", customer_phone="060111222", shipping_city="Novi Sad", shipping_postal_code="21000", shipping_address="Adresa 1", items=[GuestCheckoutItem(product_id=product.id, quantity=1)]))
+    return create_guest_order(db, GuestCheckoutCreate(customer_name="Kupac Test", customer_phone="060111222", shipping_city="Novi Sad", shipping_postal_code="21000", shipping_address="Adresa 1", accepted_terms=True, items=[GuestCheckoutItem(product_id=product.id, quantity=1)]))
 
 
 def test_status_event_created_when_status_changes(db):

@@ -18,7 +18,7 @@ type AdminFetchOptions = RequestInit & { revalidate?: number };
 export async function apiFetch<T>(path: string, init: ApiFetchOptions = {}): Promise<T> {
   const method = init.method ?? 'GET';
   const headers = new Headers(init.headers);
-  if (!headers.has('Content-Type') && method !== 'GET') headers.set('Content-Type', 'application/json');
+  if (!headers.has('Content-Type') && method !== 'GET' && !(init.body instanceof FormData)) headers.set('Content-Type', 'application/json');
   if (init.token) headers.set('Authorization', `Bearer ${init.token}`);
 
   const response = await fetch(`${apiBaseUrl}${path}`, {
@@ -49,9 +49,24 @@ export type Product = {
 };
 export type ProductListResponse = { items: Product[]; total: number; page: number; page_size: number; pages: number };
 export type CartLine = { lineId: string; productId: number; variantId?: number; name: string; slug: string; imageUrl?: string | null; sku?: string | null; variantLabel?: string; unitPriceCents: number; quantity: number; stockQuantity: number; currency: string };
-export type GuestCheckoutPayload = { customer_name: string; customer_email?: string; customer_phone: string; shipping_city: string; shipping_postal_code: string; shipping_address: string; note?: string; idempotency_key?: string; items: { product_id: number; variant_id?: number; quantity: number }[] };
+export type GuestCheckoutPayload = { customer_name: string; customer_email?: string; customer_phone: string; shipping_city: string; shipping_postal_code: string; shipping_address: string; note?: string; accepted_terms: boolean; source?: string; idempotency_key?: string; items: { product_id: number; variant_id?: number; quantity: number }[] };
 export type OrderStatusEvent = { id: number; old_status?: string | null; new_status: string; actor_user_id?: number | null; note?: string | null; created_at: string };
-export type Order = { id: number; order_number: string; status: string; total_cents: number; currency: string; customer_name: string; customer_email?: string | null; customer_phone: string; shipping_city: string; shipping_postal_code: string; shipping_address: string; note?: string | null; idempotency_key?: string | null; confirmed_at?: string | null; packed_at?: string | null; shipped_at?: string | null; delivered_at?: string | null; cancelled_at?: string | null; internal_note?: string | null; created_at: string; updated_at?: string; status_events?: OrderStatusEvent[]; items: { id: number; product_name: string; quantity: number; total_price_cents: number }[] };
+export type Order = { id: number; order_number: string; status: string; total_cents: number; currency: string; customer_name: string; customer_email?: string | null; customer_phone: string; shipping_city: string; shipping_postal_code: string; shipping_address: string; note?: string | null; idempotency_key?: string | null; confirmed_at?: string | null; packed_at?: string | null; shipped_at?: string | null; delivered_at?: string | null; cancelled_at?: string | null; internal_note?: string | null; accepted_terms_at?: string | null; customer_ip?: string | null; user_agent?: string | null; source?: string | null; created_at: string; updated_at?: string; status_events?: OrderStatusEvent[]; items: { id: number; product_name: string; product_sku?: string | null; product_id?: number | null; unit_price_cents?: number; quantity: number; total_price_cents: number; variant_id?: number | null; product_slug?: string | null; product_image_url?: string | null; variant_label?: string | null; currency?: string; discount_cents?: number; tax_cents?: number }[] };
+
+export type PublicStoreSettings = {
+  store_phone?: string | null;
+  store_email?: string | null;
+  instagram_url?: string | null;
+  facebook_url?: string | null;
+  delivery_note?: string | null;
+  return_policy_short?: string | null;
+  company_name?: string | null;
+  company_address?: string | null;
+  company_registration_number?: string | null;
+  company_tax_id?: string | null;
+  logo_url?: string | null;
+};
+
 export type AdminSummary = { new_orders: number; active_products: number; out_of_stock_products: number; latest_orders: Order[] };
 
 const paramsToQuery = (params: Record<string, string | number | undefined>) => {
@@ -63,12 +78,13 @@ const paramsToQuery = (params: Record<string, string | number | undefined>) => {
 
 export const getProducts = (params: Record<string, string | number | undefined> = {}) => apiFetch<ProductListResponse>(`/api/v1/products/${paramsToQuery(params)}`, { publicGet: true });
 export const getProduct = (slug: string) => apiFetch<Product>(`/api/v1/products/${encodeURIComponent(slug)}`, { publicGet: true });
+export const getPublicStoreSettings = () => apiFetch<PublicStoreSettings>('/api/v1/store/settings', { publicGet: true, revalidate: 120 });
 export const getCategories = () => apiFetch<Category[]>('/api/v1/categories/', { publicGet: true });
 export const createGuestOrder = (payload: GuestCheckoutPayload) => apiFetch<Order>('/api/v1/orders/guest-checkout', { method: 'POST', body: JSON.stringify(payload) });
 export async function adminFetch<T>(path: string, init: AdminFetchOptions = {}): Promise<T> {
   const method = init.method ?? 'GET';
   const headers = new Headers(init.headers);
-  if (!headers.has('Content-Type') && method !== 'GET') headers.set('Content-Type', 'application/json');
+  if (!headers.has('Content-Type') && method !== 'GET' && !(init.body instanceof FormData)) headers.set('Content-Type', 'application/json');
   const response = await fetch(`/api/admin/proxy/api/v1/admin${path}`, { ...init, headers, cache: 'no-store' });
   if (!response.ok) { let details: unknown; try { details = await response.json(); } catch { details = await response.text(); } throw new ApiError(`Admin request failed with status ${response.status}`, response.status, details); }
   if (response.status === 204) return undefined as T;
@@ -86,6 +102,9 @@ export type AdminProductPayload = Partial<Omit<Product, 'id' | 'category' | 'ima
 export type AdminCategoryPayload = Partial<Omit<Category, 'id' | 'slug' | 'created_at' | 'updated_at'>> & { name?: string; slug?: string | null };
 export type AdminProductImagePayload = { image_url?: string; alt_text?: string | null; sort_order?: number; is_primary?: boolean };
 export type AdminProductVariantPayload = { sku?: string | null; size?: string | null; color?: string | null; price_cents?: number | null; stock_quantity?: number; is_active?: boolean };
+export type AuditLogItem = { id: number; actor_user_id?: number | null; action: string; entity_type: string; entity_id?: string | null; metadata_json?: string | null; created_at: string; };
+export type AuditLogResponse = { items: AuditLogItem[]; total: number; page: number; page_size: number; };
+
 export type StoreSetting = { id: number; key: string; value?: string | null; value_type: string; is_public: boolean; created_at: string; updated_at: string };
 export type StoreSettingPayload = { value?: string | null; value_type?: string; is_public?: boolean };
 
@@ -106,3 +125,7 @@ export const updateAdminProductVariant = (productId: number, variantId: number, 
 export const deleteAdminProductVariant = (productId: number, variantId: number) => adminFetch<ProductVariant>(`/products/${productId}/variants/${variantId}`, { method: 'DELETE' });
 export const getAdminSettings = () => adminFetch<StoreSetting[]>('/settings');
 export const updateAdminSetting = (key: string, payload: StoreSettingPayload) => adminFetch<StoreSetting>(`/settings/${encodeURIComponent(key)}`, { method: 'PATCH', body: JSON.stringify(payload) });
+
+export const updateAdminOrderInternalNote = (orderId: number, internalNote: string | null) => adminFetch<Order>(`/orders/${orderId}/internal-note`, { method: 'PATCH', body: JSON.stringify({ internal_note: internalNote }) });
+export const getAdminAuditLogs = (params: Record<string, string | number | undefined> = {}) => adminFetch<AuditLogResponse>(`/audit-logs${paramsToQuery(params)}`);
+export const uploadAdminProductImage = (productId: number, formData: FormData) => adminFetch<ProductImage>(`/products/${productId}/images/upload`, { method: 'POST', body: formData });

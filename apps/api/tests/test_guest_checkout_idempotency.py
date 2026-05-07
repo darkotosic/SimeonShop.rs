@@ -11,6 +11,7 @@ def _payload(product_id: int, key: str):
         "shipping_postal_code": "11000",
         "shipping_address": "Test ulica 1",
         "idempotency_key": key,
+        "accepted_terms": True,
         "items": [{"product_id": product_id, "quantity": 2}],
     }
 

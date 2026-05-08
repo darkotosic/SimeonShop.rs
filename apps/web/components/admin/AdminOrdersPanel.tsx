@@ -157,9 +157,14 @@ function OrderRow({ order, expanded, note, saving, onToggle, onNoteChange, onSav
 
 export function AdminOrdersPanel() {
   const [orders, setOrders] = useState<Order[]>([]);
+  const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(25);
+  const [total, setTotal] = useState(0);
+  const [pages, setPages] = useState(1);
   const [filter, setFilter] = useState('');
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
+  const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [notes, setNotes] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
@@ -167,20 +172,29 @@ export function AdminOrdersPanel() {
   const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [exportWarning, setExportWarning] = useState<string | null>(null);
+
+  const dateRangeError = dateFrom && dateTo && dateFrom > dateTo ? 'Datum od ne može biti posle datuma do.' : null;
 
   const load = useCallback(async () => {
+    if (dateRangeError) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError(null);
     try {
-      const data = await getAdminOrders();
-      setOrders(data);
-      setNotes(Object.fromEntries(data.map((order) => [order.id, order.internal_note ?? ''])));
+      const data = await getAdminOrders({ page, page_size: pageSize, status: filter, date_from: dateFrom, date_to: dateTo, q: search });
+      setOrders(data.items);
+      setTotal(data.total);
+      setPages(data.pages);
+      setNotes(Object.fromEntries(data.items.map((order) => [order.id, order.internal_note ?? ''])));
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [dateFrom, dateRangeError, dateTo, filter, page, pageSize, search]);
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => {
@@ -189,11 +203,14 @@ export function AdminOrdersPanel() {
     return () => window.clearTimeout(timeout);
   }, [success]);
 
-  const visible = filter ? orders.filter((order) => order.status === filter) : orders;
-  const dateRangeError = dateFrom && dateTo && dateFrom > dateTo ? 'Datum od ne može biti posle datuma do.' : null;
+  function resetToFirstPage(callback: () => void) {
+    setPage(1);
+    setExpandedId(null);
+    callback();
+  }
 
   async function saveNote(order: Order) {
-    setSavingId(order.id); setError(null); setSuccess(null);
+    setSavingId(order.id); setError(null); setSuccess(null); setExportWarning(null);
     try {
       await updateAdminOrderInternalNote(order.id, notes[order.id] || null);
       setSuccess('Interna napomena je sačuvana.');
@@ -205,7 +222,7 @@ export function AdminOrdersPanel() {
   async function changeStatus(order: Order, status: string) {
     if (status === order.status) return;
     if (status === 'cancelled' && !confirm('Da li sigurno otkazujete porudžbinu?')) return;
-    setSavingId(order.id); setError(null); setSuccess(null);
+    setSavingId(order.id); setError(null); setSuccess(null); setExportWarning(null);
     try {
       await updateAdminOrderStatus(order.id, status);
       setSuccess('Status porudžbine je ažuriran.');
@@ -219,11 +236,13 @@ export function AdminOrdersPanel() {
     if (dateRangeError) {
       setError(dateRangeError);
       setSuccess(null);
+      setExportWarning(null);
       return;
     }
     setExporting(true);
     setError(null);
     setSuccess(null);
+    setExportWarning(null);
     try {
       const result = await exportAdminOrdersCsv({ status: filter, date_from: dateFrom, date_to: dateTo });
       const url = window.URL.createObjectURL(result.blob);
@@ -235,6 +254,9 @@ export function AdminOrdersPanel() {
       link.remove();
       window.URL.revokeObjectURL(url);
       setSuccess('CSV izvoz je spreman za preuzimanje.');
+      if (result.truncated) {
+        setExportWarning(`Export je ograničen na prvih ${result.rows} redova. Koristite filter datuma za precizniji izvoz.`);
+      }
     } catch (err) {
       setError(getErrorMessage(err));
     } finally {
@@ -248,31 +270,49 @@ export function AdminOrdersPanel() {
         <h2 className="text-xl font-bold text-primary">Porudžbine</h2>
         <div className="flex flex-wrap items-end gap-2">
           <label className="text-xs font-medium text-slate-600">
+            Pretraga
+            <input type="search" value={search} onChange={(event) => resetToFirstPage(() => setSearch(event.target.value))} placeholder="Broj, kupac, email..." className="mt-1 block border px-3 py-2 text-sm" />
+          </label>
+          <label className="text-xs font-medium text-slate-600">
             Status
-            <select value={filter} onChange={(event) => setFilter(event.target.value)} className="mt-1 block border px-3 py-2 text-sm">
+            <select value={filter} onChange={(event) => resetToFirstPage(() => setFilter(event.target.value))} className="mt-1 block border px-3 py-2 text-sm">
               <option value="">Svi statusi</option>
               {statuses.map((status) => <option key={status} value={status}>{status}</option>)}
             </select>
           </label>
           <label className="text-xs font-medium text-slate-600">
             Od
-            <input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} className="mt-1 block border px-3 py-2 text-sm" />
+            <input type="date" value={dateFrom} onChange={(event) => resetToFirstPage(() => setDateFrom(event.target.value))} className="mt-1 block border px-3 py-2 text-sm" />
           </label>
           <label className="text-xs font-medium text-slate-600">
             Do
-            <input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} className="mt-1 block border px-3 py-2 text-sm" />
+            <input type="date" value={dateTo} onChange={(event) => resetToFirstPage(() => setDateTo(event.target.value))} className="mt-1 block border px-3 py-2 text-sm" />
+          </label>
+          <label className="text-xs font-medium text-slate-600">
+            Po strani
+            <select value={pageSize} onChange={(event) => resetToFirstPage(() => setPageSize(Number(event.target.value)))} className="mt-1 block border px-3 py-2 text-sm">
+              {[10, 25, 50, 100].map((size) => <option key={size} value={size}>{size}</option>)}
+            </select>
           </label>
           <button type="button" disabled={exporting || Boolean(dateRangeError)} onClick={() => void exportCsv()} className="bg-primary px-4 py-2 text-sm font-semibold text-white disabled:bg-slate-400">
             {exporting ? 'Export...' : 'Export CSV'}
           </button>
         </div>
       </div>
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-700">
+        <span>Strana {page} od {pages} — ukupno {total} porudžbina</span>
+        <div className="flex gap-2">
+          <button type="button" disabled={loading || page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))} className="border px-3 py-1 disabled:text-slate-400">Prethodna</button>
+          <button type="button" disabled={loading || page >= pages} onClick={() => setPage((current) => current + 1)} className="border px-3 py-1 disabled:text-slate-400">Sledeća</button>
+        </div>
+      </div>
       {loading && <div className="border border-slate-200 bg-white p-6">Učitavanje porudžbina...</div>}
       {dateRangeError && <div className="rounded-lg bg-amber-50 p-4 text-sm text-amber-800">{dateRangeError}</div>}
+      {exportWarning && <div className="rounded-lg bg-amber-50 p-4 text-sm text-amber-800">{exportWarning}</div>}
       {error && <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700">{error}</div>}
       {success && <div className="rounded-lg bg-green-50 p-4 text-sm text-green-700">{success}</div>}
-      {!loading && visible.length === 0 && <div className="border border-slate-200 bg-white p-6">Nema porudžbina za izabrani filter.</div>}
-      {!loading && visible.length > 0 && (
+      {!loading && orders.length === 0 && <div className="border border-slate-200 bg-white p-6">Nema porudžbina za izabrani filter.</div>}
+      {!loading && orders.length > 0 && (
         <div className="overflow-x-auto bg-white">
           <table className="w-full min-w-[1100px] text-left text-sm">
             <thead>
@@ -281,7 +321,7 @@ export function AdminOrdersPanel() {
               </tr>
             </thead>
             <tbody>
-              {visible.map((order) => (
+              {orders.map((order) => (
                 <OrderRow
                   key={order.id}
                   order={order}

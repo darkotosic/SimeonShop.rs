@@ -72,7 +72,8 @@ export type DailyRevenue = { date: string; revenue_cents: number };
 export type DailyOrders = { date: string; orders_count: number };
 export type TopProduct = { product_name: string; quantity_sold: number; revenue_cents: number };
 export type AdminSummary = { new_orders: number; confirmed_orders: number; packed_orders: number; shipped_orders: number; delivered_orders: number; cancelled_orders: number; active_products: number; out_of_stock_products: number; total_revenue_cents: number; orders_count_period: number; average_order_value_cents: number; latest_orders: Order[]; low_stock_products: LowStockProduct[]; revenue_by_day: DailyRevenue[]; orders_by_day: DailyOrders[]; top_products: TopProduct[] };
-export type CsvExportResult = { blob: Blob; filename: string };
+export type AdminOrderListResponse = { items: Order[]; total: number; page: number; page_size: number; pages: number };
+export type CsvExportResult = { blob: Blob; filename: string; rows: number; truncated: boolean };
 
 const paramsToQuery = (params: Record<string, string | number | undefined>) => {
   const search = new URLSearchParams();
@@ -120,7 +121,7 @@ export async function adminFetch<T>(path: string, init: AdminFetchOptions = {}):
 export const adminLogin = (email: string, password: string) => fetch('/api/admin/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) }).then(async (response) => { if (!response.ok) { let details: unknown; try { details = await response.json(); } catch { details = await response.text(); } throw new ApiError('Admin login failed', response.status, details); } return response.json() as Promise<{ ok: boolean; token_type: string }>; });
 export const adminLogout = () => fetch('/api/admin/logout', { method: 'POST' });
 export const getAdminSummary = (periodDays = 30) => adminFetch<AdminSummary>(`/summary${paramsToQuery({ period_days: periodDays })}`);
-export const getAdminOrders = () => adminFetch<Order[]>('/orders');
+export const getAdminOrders = (params: Record<string, string | number | undefined> = {}) => adminFetch<AdminOrderListResponse>(`/orders${paramsToQuery(params)}`);
 function filenameFromContentDisposition(header: string | null) {
   if (!header) return 'orders-export.csv';
   const utf8Match = header.match(/filename\*=UTF-8''([^;]+)/i);
@@ -146,6 +147,8 @@ export async function exportAdminOrdersCsv(params: Record<string, string | numbe
   return {
     blob: await response.blob(),
     filename: filenameFromContentDisposition(response.headers.get('content-disposition')),
+    rows: Number(response.headers.get('x-export-rows') ?? 0),
+    truncated: response.headers.get('x-export-truncated') === 'true',
   };
 }
 

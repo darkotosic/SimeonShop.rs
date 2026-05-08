@@ -3,13 +3,13 @@ import io
 from datetime import date, datetime, time, timedelta, timezone
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status as status_module
-from sqlalchemy import func
+from sqlalchemy import func, or_
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import get_current_admin, get_db
 from app.crud.category import create_category, get_categories, get_category_by_id, soft_delete_category, update_category
-from app.crud.order import get_order_by_id, get_orders, update_order_internal_note, update_order_status
+from app.crud.order import get_order_by_id, update_order_internal_note, update_order_status
 from app.crud.product import create_product, delete_product, get_product_by_id, get_products, update_product
 from app.crud.product_media import (
     create_product_image,
@@ -20,14 +20,14 @@ from app.crud.product_media import (
     update_product_image,
     update_product_variant,
 )
-from app.models.order import Order
+from app.models.order import Order, OrderItem
 from app.models.product import Product
 from app.models.product_image import ProductImage
 from app.models.product_variant import ProductVariant
 from app.models.store_setting import StoreSetting
 from app.models.user import User
 from app.schemas.category import CategoryCreate, CategoryRead, CategoryUpdate
-from app.schemas.order import AdminSummaryRead, OrderInternalNoteUpdate, OrderRead, OrderStatusUpdate
+from app.schemas.order import AdminOrderListResponse, AdminSummaryRead, OrderInternalNoteUpdate, OrderRead, OrderStatusUpdate
 from app.schemas.product import (
     ProductCreate,
     ProductImageCreate,
@@ -89,6 +89,35 @@ def _items_summary(order: Order) -> str:
     return "; ".join(rows)
 
 
+def _validate_order_filters(status: str | None, date_from: date | None, date_to: date | None) -> None:
+    if status and status not in ORDER_STATUSES:
+        raise HTTPException(status_code=status_module.HTTP_400_BAD_REQUEST, detail="Invalid order status filter.")
+    if date_from and date_to and date_from > date_to:
+        raise HTTPException(status_code=status_module.HTTP_400_BAD_REQUEST, detail="date_from must be before or equal to date_to.")
+
+
+def _apply_order_filters(query, status: str | None = None, date_from: date | None = None, date_to: date | None = None, q: str | None = None):
+    if status:
+        query = query.filter(Order.status == status)
+    if date_from:
+        query = query.filter(Order.created_at >= datetime.combine(date_from, time.min, tzinfo=timezone.utc))
+    if date_to:
+        query = query.filter(Order.created_at <= datetime.combine(date_to, time.max, tzinfo=timezone.utc))
+    if q:
+        term = f"%{q.strip()}%"
+        if q.strip():
+            query = query.filter(
+                or_(
+                    Order.order_number.ilike(term),
+                    Order.customer_name.ilike(term),
+                    Order.customer_email.ilike(term),
+                    Order.customer_phone.ilike(term),
+                    Order.shipping_city.ilike(term),
+                )
+            )
+    return query
+
+
 def _period_start(period_days: int) -> datetime:
     days = max(min(period_days, 365), 1)
     return datetime.now(timezone.utc) - timedelta(days=days)
@@ -97,50 +126,77 @@ def _period_start(period_days: int) -> datetime:
 @router.get("/summary", response_model=AdminSummaryRead)
 def admin_summary(period_days: int = Query(default=30, ge=1, le=365), db: Session = Depends(get_db), current_admin: User = Depends(get_current_admin)):
     period_start = _period_start(period_days)
-    period_orders = db.query(Order).options(selectinload(Order.items)).filter(Order.created_at >= period_start).all()
-    delivered_orders = [order for order in period_orders if order.status == "delivered"]
+    status_counts = {
+        status: count
+        for status, count in db.query(Order.status, func.count(Order.id))
+        .filter(Order.created_at >= period_start)
+        .group_by(Order.status)
+        .all()
+    }
+    orders_count_period = sum(status_counts.values())
+
+    delivered_revenue = (
+        db.query(func.coalesce(func.sum(Order.total_cents), 0), func.count(Order.id))
+        .filter(Order.created_at >= period_start, Order.status == "delivered")
+        .one()
+    )
+    total_revenue_cents = int(delivered_revenue[0] or 0)
+    delivered_count = int(delivered_revenue[1] or 0)
+
+    orders_by_day_rows = (
+        db.query(func.date(Order.created_at).label("day"), func.count(Order.id))
+        .filter(Order.created_at >= period_start)
+        .group_by(func.date(Order.created_at))
+        .order_by(func.date(Order.created_at))
+        .all()
+    )
+    revenue_by_day_rows = (
+        db.query(func.date(Order.created_at).label("day"), func.coalesce(func.sum(Order.total_cents), 0))
+        .filter(Order.created_at >= period_start, Order.status == "delivered")
+        .group_by(func.date(Order.created_at))
+        .order_by(func.date(Order.created_at))
+        .all()
+    )
+    top_product_rows = (
+        db.query(
+            OrderItem.product_name,
+            func.coalesce(func.sum(OrderItem.quantity), 0).label("quantity_sold"),
+            func.coalesce(func.sum(OrderItem.total_price_cents), 0).label("revenue_cents"),
+        )
+        .join(Order, Order.id == OrderItem.order_id)
+        .filter(Order.created_at >= period_start, Order.status == "delivered")
+        .group_by(OrderItem.product_name)
+        .order_by(func.sum(OrderItem.quantity).desc(), func.sum(OrderItem.total_price_cents).desc(), OrderItem.product_name.asc())
+        .limit(10)
+        .all()
+    )
+    latest_orders = (
+        db.query(Order)
+        .options(selectinload(Order.items), selectinload(Order.status_events))
+        .order_by(Order.created_at.desc())
+        .limit(5)
+        .all()
+    )
+
     active_products = db.query(Product).options(selectinload(Product.variants)).filter(Product.is_active.is_(True)).all()
     low_stock_products = sorted(
         [product for product in active_products if _effective_stock(product) <= 3],
         key=lambda product: (_effective_stock(product), product.name.lower()),
     )[:10]
-    total_revenue_cents = sum(order.total_cents for order in delivered_orders)
-    orders_count_period = len(period_orders)
-
-    revenue_by_day_map: dict[str, int] = {}
-    orders_by_day_map: dict[str, int] = {}
-    top_products_map: dict[str, dict[str, int | str]] = {}
-
-    for order in period_orders:
-        day = order.created_at.date().isoformat() if order.created_at else "unknown"
-        orders_by_day_map[day] = orders_by_day_map.get(day, 0) + 1
-        if order.status != "delivered":
-            continue
-        revenue_by_day_map[day] = revenue_by_day_map.get(day, 0) + order.total_cents
-        for item in order.items:
-            product_name = item.product_name
-            metrics = top_products_map.setdefault(product_name, {"product_name": product_name, "quantity_sold": 0, "revenue_cents": 0})
-            metrics["quantity_sold"] = int(metrics["quantity_sold"]) + item.quantity
-            metrics["revenue_cents"] = int(metrics["revenue_cents"]) + item.total_price_cents
-
-    top_products = sorted(
-        top_products_map.values(),
-        key=lambda item: (-int(item["quantity_sold"]), -int(item["revenue_cents"]), str(item["product_name"]).lower()),
-    )[:10]
 
     return {
-        "new_orders": sum(1 for order in period_orders if order.status == "new"),
-        "confirmed_orders": sum(1 for order in period_orders if order.status == "confirmed"),
-        "packed_orders": sum(1 for order in period_orders if order.status == "packed"),
-        "shipped_orders": sum(1 for order in period_orders if order.status == "shipped"),
-        "delivered_orders": len(delivered_orders),
-        "cancelled_orders": sum(1 for order in period_orders if order.status == "cancelled"),
+        "new_orders": status_counts.get("new", 0),
+        "confirmed_orders": status_counts.get("confirmed", 0),
+        "packed_orders": status_counts.get("packed", 0),
+        "shipped_orders": status_counts.get("shipped", 0),
+        "delivered_orders": status_counts.get("delivered", 0),
+        "cancelled_orders": status_counts.get("cancelled", 0),
         "active_products": len(active_products),
         "out_of_stock_products": sum(1 for product in active_products if _effective_stock(product) <= 0),
         "total_revenue_cents": total_revenue_cents,
         "orders_count_period": orders_count_period,
-        "average_order_value_cents": total_revenue_cents // len(delivered_orders) if delivered_orders else 0,
-        "latest_orders": get_orders(db)[:5],
+        "average_order_value_cents": total_revenue_cents // delivered_count if delivered_count else 0,
+        "latest_orders": latest_orders,
         "low_stock_products": [
             {
                 "id": product.id,
@@ -153,9 +209,12 @@ def admin_summary(period_days: int = Query(default=30, ge=1, le=365), db: Sessio
             }
             for product in low_stock_products
         ],
-        "revenue_by_day": [{"date": key, "revenue_cents": revenue_by_day_map[key]} for key in sorted(revenue_by_day_map)],
-        "orders_by_day": [{"date": key, "orders_count": orders_by_day_map[key]} for key in sorted(orders_by_day_map)],
-        "top_products": top_products,
+        "revenue_by_day": [{"date": str(day), "revenue_cents": int(revenue_cents or 0)} for day, revenue_cents in revenue_by_day_rows],
+        "orders_by_day": [{"date": str(day), "orders_count": int(count or 0)} for day, count in orders_by_day_rows],
+        "top_products": [
+            {"product_name": product_name, "quantity_sold": int(quantity_sold or 0), "revenue_cents": int(revenue_cents or 0)}
+            for product_name, quantity_sold, revenue_cents in top_product_rows
+        ],
     }
 
 
@@ -342,23 +401,23 @@ def admin_export_orders_csv(
     status: str | None = None,
     date_from: date | None = None,
     date_to: date | None = None,
+    max_rows: int = Query(default=5000, ge=1, le=50000),
     db: Session = Depends(get_db),
     current_admin: User = Depends(get_current_admin),
 ):
-    if status and status not in ORDER_STATUSES:
-        raise HTTPException(status_code=status_module.HTTP_400_BAD_REQUEST, detail="Invalid order status filter.")
-    if date_from and date_to and date_from > date_to:
-        raise HTTPException(status_code=status_module.HTTP_400_BAD_REQUEST, detail="date_from must be before or equal to date_to.")
+    _validate_order_filters(status, date_from, date_to)
 
-    query = db.query(Order).options(selectinload(Order.items))
-    if status:
-        query = query.filter(Order.status == status)
-    if date_from:
-        query = query.filter(Order.created_at >= datetime.combine(date_from, time.min, tzinfo=timezone.utc))
-    if date_to:
-        query = query.filter(Order.created_at <= datetime.combine(date_to, time.max, tzinfo=timezone.utc))
+    base_query = _apply_order_filters(db.query(Order), status=status, date_from=date_from, date_to=date_to)
+    total_matching = base_query.count()
+    orders = (
+        base_query.options(selectinload(Order.items))
+        .order_by(Order.created_at.desc())
+        .limit(max_rows)
+        .all()
+    )
+    rows_count = len(orders)
+    truncated = date_from is None and date_to is None and total_matching > max_rows
 
-    orders = query.order_by(Order.created_at.desc()).all()
     output = io.StringIO()
     writer = csv.DictWriter(output, fieldnames=[
         "order_number",
@@ -403,19 +462,45 @@ def admin_export_orders_csv(
         "status": status,
         "date_from": date_from.isoformat() if date_from else None,
         "date_to": date_to.isoformat() if date_to else None,
-        "rows_count": len(orders),
+        "rows_count": rows_count,
+        "max_rows": max_rows,
+        "truncated": truncated,
     })
     filename = f"orders-export-{date.today().isoformat()}.csv"
     return Response(
         content="\ufeff" + output.getvalue(),
         media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "X-Export-Truncated": str(truncated).lower(),
+            "X-Export-Rows": str(rows_count),
+        },
     )
 
 
-@router.get("/orders", response_model=list[OrderRead])
-def admin_orders(db: Session = Depends(get_db), current_admin: User = Depends(get_current_admin)):
-    return get_orders(db)
+@router.get("/orders", response_model=AdminOrderListResponse)
+def admin_orders(
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=25, ge=1, le=100),
+    status: str | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    q: str | None = None,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin),
+):
+    _validate_order_filters(status, date_from, date_to)
+    query = _apply_order_filters(db.query(Order), status=status, date_from=date_from, date_to=date_to, q=q)
+    total = query.count()
+    pages = max((total + page_size - 1) // page_size, 1)
+    items = (
+        query.options(selectinload(Order.items), selectinload(Order.status_events))
+        .order_by(Order.created_at.desc())
+        .offset((page - 1) * page_size)
+        .limit(page_size)
+        .all()
+    )
+    return {"items": items, "total": total, "page": page, "page_size": page_size, "pages": pages}
 
 
 @router.patch("/orders/{order_id}/status", response_model=OrderRead)

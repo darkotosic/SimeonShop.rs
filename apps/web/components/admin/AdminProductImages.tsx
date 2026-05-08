@@ -11,7 +11,13 @@ const maxBytes = 5 * 1024 * 1024;
 
 function uploadError(error: unknown) {
   if (error instanceof ApiError) {
-    const detail = typeof error.details === 'object' && error.details && 'detail' in error.details ? String((error.details as { detail?: unknown }).detail) : '';
+    const details = error.details;
+    const detail =
+      typeof details === 'object' && details && 'detail' in details
+        ? String((details as { detail?: unknown }).detail)
+        : typeof details === 'object' && details && 'error' in details
+          ? String((details as { error?: { message?: unknown } }).error?.message ?? '')
+          : '';
     if (detail.includes('media provider')) return 'MEDIA_PROVIDER nije podešen na cloudinary. Upload nije omogućen.';
     if (detail.includes('not configured')) return 'Cloudinary nije konfigurisan. Proverite CLOUDINARY_* environment promenljive.';
     return detail || `Upload greška (${error.status}).`;

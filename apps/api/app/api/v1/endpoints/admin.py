@@ -137,7 +137,8 @@ async def admin_upload_product_image(
     current_admin: User = Depends(get_current_admin),
 ):
     _get_product_or_404(db, product_id)
-    image_url = await upload_product_image(file, product_id)
+    upload = await upload_product_image(file, product_id)
+    image_url = upload.image_url
     image = create_product_image(
         db,
         product_id,
@@ -148,7 +149,19 @@ async def admin_upload_product_image(
             is_primary=is_primary,
         ),
     )
-    create_audit_log(db, current_admin.id, "upload", "product_image", image.id, {"product_id": product_id})
+    create_audit_log(
+        db,
+        current_admin.id,
+        "upload",
+        "product_image",
+        image.id,
+        {
+            "product_id": product_id,
+            "image_url": image_url,
+            "content_type": upload.content_type,
+            "size_bytes": upload.size_bytes,
+        },
+    )
     return image
 
 

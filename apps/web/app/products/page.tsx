@@ -42,8 +42,8 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
   const uiParams = {
     q: first(raw.q),
     category: first(raw.category),
-    min_price_rsd: first(raw.min_price_rsd) ?? first(raw.min_price),
-    max_price_rsd: first(raw.max_price_rsd) ?? first(raw.max_price),
+    min_price_rsd: first(raw.min_price_rsd),
+    max_price_rsd: first(raw.max_price_rsd),
     sort: first(raw.sort),
     page: first(raw.page),
   };

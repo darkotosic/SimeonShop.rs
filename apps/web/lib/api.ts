@@ -18,7 +18,7 @@ type AdminFetchOptions = RequestInit & { revalidate?: number };
 export async function apiFetch<T>(path: string, init: ApiFetchOptions = {}): Promise<T> {
   const method = init.method ?? 'GET';
   const headers = new Headers(init.headers);
-  if (!headers.has('Content-Type') && method !== 'GET' && !(init.body instanceof FormData)) headers.set('Content-Type', 'application/json');
+  if (!headers.has('Content-Type') && method !== 'GET' && init.body !== undefined && !(init.body instanceof FormData)) headers.set('Content-Type', 'application/json');
   if (init.token) headers.set('Authorization', `Bearer ${init.token}`);
 
   const response = await fetch(`${apiBaseUrl}${path}`, {
@@ -84,9 +84,31 @@ export const createGuestOrder = (payload: GuestCheckoutPayload) => apiFetch<Orde
 export async function adminFetch<T>(path: string, init: AdminFetchOptions = {}): Promise<T> {
   const method = init.method ?? 'GET';
   const headers = new Headers(init.headers);
-  if (!headers.has('Content-Type') && method !== 'GET' && !(init.body instanceof FormData)) headers.set('Content-Type', 'application/json');
-  const response = await fetch(`/api/admin/proxy/api/v1/admin${path}`, { ...init, headers, cache: 'no-store' });
-  if (!response.ok) { let details: unknown; try { details = await response.json(); } catch { details = await response.text(); } throw new ApiError(`Admin request failed with status ${response.status}`, response.status, details); }
+  if (!headers.has('Content-Type') && method !== 'GET' && init.body !== undefined && !(init.body instanceof FormData)) {
+    headers.set('Content-Type', 'application/json');
+  }
+
+  const response = await fetch(`/api/admin/proxy/api/v1/admin${path}`, {
+    ...init,
+    headers,
+    cache: 'no-store',
+  });
+
+  if (!response.ok) {
+    let details: unknown;
+    try {
+      details = await response.json();
+    } catch {
+      details = await response.text();
+    }
+
+    if ((response.status === 401 || response.status === 403) && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('simeonshop:admin-auth-expired'));
+    }
+
+    throw new ApiError(`Admin request failed with status ${response.status}`, response.status, details);
+  }
+
   if (response.status === 204) return undefined as T;
   return response.json() as Promise<T>;
 }

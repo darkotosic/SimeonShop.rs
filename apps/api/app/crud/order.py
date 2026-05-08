@@ -80,6 +80,8 @@ def create_order_from_cart(db: Session, user_id: int, payload: CheckoutCreate) -
         shipping_postal_code=payload.shipping_postal_code,
         shipping_address=payload.shipping_address,
         note=payload.note,
+        accepted_terms_at=datetime.now(timezone.utc),
+        source="legacy_checkout",
     )
 
     db.add(order)

@@ -6,7 +6,10 @@ import { FormEvent, useCallback, useEffect, useState } from 'react';
 import type { StoreSetting } from '@/lib/api';
 import { ApiError, getAdminSettings, updateAdminSetting } from '@/lib/api';
 
+type SettingSection = 'Kontakt' | 'Social' | 'Dostava' | 'Povraćaj' | 'Firma' | 'Brend';
+
 type PublicSettingConfig = {
+  section: SettingSection;
   key: string;
   label: string;
   description: string;
@@ -17,6 +20,7 @@ type PublicSettingConfig = {
 
 const publicSettings: PublicSettingConfig[] = [
   {
+    section: 'Kontakt',
     key: 'store_phone',
     label: 'Telefon prodavnice',
     description: 'Prikazuje se u footeru, na kontakt strani i pravnim stranama kada je unet.',
@@ -25,6 +29,7 @@ const publicSettings: PublicSettingConfig[] = [
     defaultPublic: true,
   },
   {
+    section: 'Kontakt',
     key: 'store_email',
     label: 'Email prodavnice',
     description: 'Prikazuje se u footeru, na kontakt strani i kao kontakt za kupce.',
@@ -33,6 +38,7 @@ const publicSettings: PublicSettingConfig[] = [
     defaultPublic: true,
   },
   {
+    section: 'Social',
     key: 'instagram_url',
     label: 'Instagram URL',
     description: 'Prikazuje se u footeru kao link ka Instagram profilu.',
@@ -41,6 +47,7 @@ const publicSettings: PublicSettingConfig[] = [
     defaultPublic: true,
   },
   {
+    section: 'Social',
     key: 'facebook_url',
     label: 'Facebook URL',
     description: 'Prikazuje se u footeru kao link ka Facebook stranici.',
@@ -49,6 +56,7 @@ const publicSettings: PublicSettingConfig[] = [
     defaultPublic: true,
   },
   {
+    section: 'Dostava',
     key: 'delivery_note',
     label: 'Napomena o dostavi',
     description: 'Prikazuje se na strani za dostavu i u uslovima kupovine.',
@@ -56,6 +64,7 @@ const publicSettings: PublicSettingConfig[] = [
     defaultPublic: true,
   },
   {
+    section: 'Povraćaj',
     key: 'return_policy_short',
     label: 'Kratka politika povraćaja',
     description: 'Prikazuje se na strani za povraćaj i u uslovima kupovine.',
@@ -63,6 +72,7 @@ const publicSettings: PublicSettingConfig[] = [
     defaultPublic: true,
   },
   {
+    section: 'Firma',
     key: 'company_name',
     label: 'Naziv firme',
     description: 'Prikazuje se na kontakt strani, pravnim stranama i koristi se kao naziv prodavca.',
@@ -71,6 +81,7 @@ const publicSettings: PublicSettingConfig[] = [
     defaultPublic: true,
   },
   {
+    section: 'Firma',
     key: 'company_address',
     label: 'Adresa firme',
     description: 'Prikazuje se na kontakt strani, u footeru i pravnim stranama kada je uneta.',
@@ -78,6 +89,7 @@ const publicSettings: PublicSettingConfig[] = [
     defaultPublic: true,
   },
   {
+    section: 'Firma',
     key: 'company_registration_number',
     label: 'Matični broj firme',
     description: 'Prikazuje se na kontakt strani i pravnim stranama kada je unet.',
@@ -86,6 +98,7 @@ const publicSettings: PublicSettingConfig[] = [
     defaultPublic: true,
   },
   {
+    section: 'Firma',
     key: 'company_tax_id',
     label: 'PIB firme',
     description: 'Prikazuje se na kontakt strani i pravnim stranama kada je unet.',
@@ -94,6 +107,7 @@ const publicSettings: PublicSettingConfig[] = [
     defaultPublic: true,
   },
   {
+    section: 'Brend',
     key: 'logo_url',
     label: 'URL logotipa',
     description: 'Koristi se za SEO metadata i strukturirane podatke sajta.',
@@ -104,8 +118,16 @@ const publicSettings: PublicSettingConfig[] = [
 ];
 
 function message(error: unknown) {
-  return error instanceof ApiError ? `Admin API greška (${error.status}).` : 'Podešavanja trenutno nisu dostupna.';
+  if (error instanceof ApiError) {
+    if (error.details && typeof error.details === 'object' && 'detail' in error.details) {
+      return String((error.details as { detail?: unknown }).detail);
+    }
+    return `Admin API greška (${error.status}).`;
+  }
+  return 'Podešavanja trenutno nisu dostupna.';
 }
+
+const sections: SettingSection[] = ['Kontakt', 'Social', 'Dostava', 'Povraćaj', 'Firma', 'Brend'];
 
 export function AdminSettingsPanel() {
   const [settings, setSettings] = useState<Record<string, StoreSetting>>({});
@@ -130,6 +152,11 @@ export function AdminSettingsPanel() {
   useEffect(() => {
     void load();
   }, [load]);
+  useEffect(() => {
+    if (!success) return;
+    const timeout = window.setTimeout(() => setSuccess(null), 4000);
+    return () => window.clearTimeout(timeout);
+  }, [success]);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -171,52 +198,56 @@ export function AdminSettingsPanel() {
       {success && <div className="rounded-lg bg-green-50 p-4 text-sm text-green-700">{success}</div>}
 
       {!loading && (
-        <form onSubmit={submit} className="grid gap-4 bg-white p-4 md:grid-cols-2">
-          {publicSettings.map((setting) => {
-            const savedSetting = settings[setting.key];
-            const isPublic = savedSetting?.is_public ?? setting.defaultPublic;
+        <form onSubmit={submit} className="space-y-5 bg-white p-4">
+          {sections.map((section) => (
+            <fieldset key={section} className="grid gap-4 rounded-2xl border border-slate-200 p-4 md:grid-cols-2">
+              <legend className="px-2 text-sm font-bold uppercase tracking-wide text-primary">{section}</legend>
+              {publicSettings.filter((setting) => setting.section === section).map((setting) => {
+                const savedSetting = settings[setting.key];
+                const isPublic = savedSetting?.is_public ?? setting.defaultPublic;
 
-            return (
-              <div key={setting.key} className="rounded-lg border border-slate-200 p-4">
-                <label className="block text-sm font-semibold text-slate-900" htmlFor={setting.key}>
-                  {setting.label}
-                </label>
-                <p className="mt-1 text-xs text-slate-500">{setting.description}</p>
-                {setting.field === 'textarea' ? (
-                  <textarea
-                    id={setting.key}
-                    name={setting.key}
-                    defaultValue={savedSetting?.value ?? ''}
-                    rows={4}
-                    className="mt-3 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  />
-                ) : (
-                  <input
-                    id={setting.key}
-                    name={setting.key}
-                    type={setting.inputType ?? 'text'}
-                    defaultValue={savedSetting?.value ?? ''}
-                    className="mt-3 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20"
-                  />
-                )}
-                <label className="mt-3 flex items-start gap-2 text-sm text-slate-700">
-                  <input
-                    name={`${setting.key}_is_public`}
-                    type="checkbox"
-                    defaultChecked={isPublic}
-                    className="mt-1 h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
-                  />
-                  <span>Javno prikazuj ovaj podatak</span>
-                </label>
-                <p className="mt-2 text-xs text-slate-400">Tip vrednosti: string</p>
-              </div>
-            );
-          })}
-          <button
-            disabled={saving}
-            className="rounded-md bg-primary px-4 py-2 font-semibold text-white disabled:bg-slate-400 md:col-span-2"
-            type="submit"
-          >
+                return (
+                  <div key={setting.key} className="rounded-lg border border-slate-100 p-4">
+                    <label className="block text-sm font-semibold text-slate-900" htmlFor={setting.key}>
+                      {setting.label}
+                    </label>
+                    <p className="mt-1 text-xs text-slate-500">{setting.description}</p>
+                    {setting.field === 'textarea' ? (
+                      <textarea
+                        id={setting.key}
+                        name={setting.key}
+                        defaultValue={savedSetting?.value ?? ''}
+                        rows={4}
+                        disabled={saving}
+                        className="mt-3 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:bg-slate-100"
+                      />
+                    ) : (
+                      <input
+                        id={setting.key}
+                        name={setting.key}
+                        type={setting.inputType ?? 'text'}
+                        defaultValue={savedSetting?.value ?? ''}
+                        disabled={saving}
+                        className="mt-3 w-full rounded-md border border-slate-300 px-3 py-2 text-sm focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/20 disabled:bg-slate-100"
+                      />
+                    )}
+                    <label className="mt-3 flex items-start gap-2 text-sm text-slate-700">
+                      <input
+                        name={`${setting.key}_is_public`}
+                        type="checkbox"
+                        defaultChecked={isPublic}
+                        disabled={saving}
+                        className="mt-1 h-4 w-4 rounded border-slate-300 text-primary focus:ring-primary"
+                      />
+                      <span>Javno prikazuj ovaj podatak</span>
+                    </label>
+                    <p className="mt-2 text-xs text-slate-400">Tip vrednosti: string</p>
+                  </div>
+                );
+              })}
+            </fieldset>
+          ))}
+          <button disabled={saving} className="rounded-md bg-primary px-4 py-2 font-semibold text-white disabled:bg-slate-400" type="submit">
             {saving ? 'Čuvanje...' : 'Sačuvaj podešavanja'}
           </button>
         </form>

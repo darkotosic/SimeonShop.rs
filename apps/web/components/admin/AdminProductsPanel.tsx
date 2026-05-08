@@ -30,6 +30,7 @@ export function AdminProductsPanel() {
     setLoading(true);
     setError(null);
     try {
+      // Temporary: admin product management fetches first 100 rows; client-side search/filter stays local until server pagination UI is added.
       const [productData, categoryData] = await Promise.all([getAdminProducts({ page_size: 100 }), getAdminCategories()]);
       setProducts(productData.items);
       setCategories(categoryData);
@@ -41,6 +42,11 @@ export function AdminProductsPanel() {
   }, []);
 
   useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    if (!success) return;
+    const timeout = window.setTimeout(() => setSuccess(null), 4000);
+    return () => window.clearTimeout(timeout);
+  }, [success]);
 
   const filtered = useMemo(() => {
     const needle = query.trim().toLowerCase();
@@ -97,6 +103,7 @@ export function AdminProductsPanel() {
       </div>
 
       <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 md:grid-cols-[1fr_auto]">
+        <p className="text-xs text-slate-500 md:col-span-2">Privremeno se učitava do 100 proizvoda po zahtevu; pretraga i filter su client-side.</p>
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Pretraga po nazivu, slug-u ili SKU" className="border border-slate-300 px-3 py-2" />
         <select value={activeFilter} onChange={(event) => setActiveFilter(event.target.value as 'all' | 'active' | 'inactive')} className="border border-slate-300 px-3 py-2">
           <option value="all">Svi proizvodi</option>
@@ -130,8 +137,8 @@ export function AdminProductsPanel() {
                   </div>
                 </div>
                 <div className="flex gap-2">
-                  <button type="button" onClick={() => { setEditing(product); setShowForm(true); }} className="border px-3 py-2">Izmeni</button>
-                  <button type="button" onClick={() => void deactivate(product)} className="border px-3 py-2 text-red-700">Deaktiviraj</button>
+                  <button type="button" disabled={saving} onClick={() => { setEditing(product); setShowForm(true); }} className="border px-3 py-2 disabled:text-slate-400">Izmeni</button>
+                  <button type="button" disabled={saving} onClick={() => void deactivate(product)} className="border px-3 py-2 text-red-700 disabled:text-slate-400">Deaktiviraj</button>
                 </div>
               </div>
               <AdminProductImages product={product} onChanged={load} />

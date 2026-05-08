@@ -46,8 +46,11 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
     throw error;
   }
 
+  const settings = await loadPublicStoreSettings();
   const images = getProductImages(product);
+  const fallbackImage = absoluteUrl(settings.logo_url) ?? absoluteUrl(fallbackLogoUrl);
   const imageUrls = images.map((image) => absoluteUrl(image.image_url)).filter((url): url is string => Boolean(url));
+  const jsonLdImages = imageUrls.length > 0 ? imageUrls : fallbackImage ? [fallbackImage] : [];
   const stock = product.effective_stock_quantity ?? product.stock_quantity;
   const productUrl = `${siteUrl}/products/${product.slug}`;
   const productJsonLd = {
@@ -57,7 +60,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
     ...(product.seo_description || product.short_description || product.description
       ? { description: product.seo_description ?? product.short_description ?? product.description }
       : {}),
-    image: imageUrls,
+    image: jsonLdImages,
     sku: product.sku ?? product.variants?.find((variant) => variant.sku)?.sku ?? String(product.id),
     url: productUrl,
     offers: {

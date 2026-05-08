@@ -13,6 +13,35 @@ from app.models.product_variant import ProductVariant
 from app.schemas.order import CheckoutCreate, GuestCheckoutCreate
 
 
+ALLOWED_STATUS_TRANSITIONS = {
+    "new": {"confirmed", "cancelled"},
+    "confirmed": {"packed", "cancelled"},
+    "packed": {"shipped", "cancelled"},
+    "shipped": {"delivered", "cancelled"},
+    "delivered": set(),
+    "cancelled": set(),
+}
+
+
+def get_allowed_next_statuses(current_status: str) -> set[str]:
+    return ALLOWED_STATUS_TRANSITIONS.get(current_status, set())
+
+
+def validate_order_status_transition(old_status: str, new_status: str) -> None:
+    if old_status == new_status:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Order status is already set to this value.",
+        )
+
+    allowed = get_allowed_next_statuses(old_status)
+    if new_status not in allowed:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid order status transition: {old_status} -> {new_status}.",
+        )
+
+
 def generate_order_number() -> str:
     stamp = datetime.now(timezone.utc).strftime("%Y%m%d")
     return f"SIM-{stamp}-{token_hex(4).upper()}"
@@ -106,6 +135,8 @@ def get_orders(db: Session) -> list[Order]:
 
 def update_order_status(db: Session, order: Order, status_value: str, actor_user_id: int | None = None, note: str | None = None) -> Order:
     old_status = order.status
+    validate_order_status_transition(old_status, status_value)
+
     order.status = status_value
     now = datetime.now(timezone.utc)
     timestamp_field = {

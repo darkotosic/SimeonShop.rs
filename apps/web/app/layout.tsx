@@ -97,7 +97,6 @@ export default async function RootLayout({ children }: { children: React.ReactNo
               <Link href="/about">O nama</Link>
               <Link href="/contact">Kontakt</Link>
               <Link href="/products">Proizvodi</Link>
-              <Link href="/admin/login">Admin</Link>
             </div>
             <div className="flex flex-col gap-2">
               <Link href="/shipping">Dostava</Link>

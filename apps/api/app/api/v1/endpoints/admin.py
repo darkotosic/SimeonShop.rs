@@ -263,8 +263,9 @@ def admin_order_status(order_id: int, payload: OrderStatusUpdate, db: Session = 
     order = get_order_by_id(db, order_id)
     if not order:
         raise HTTPException(status_code=404, detail="Order not found.")
+    old_status = order.status
     updated = update_order_status(db, order, payload.status, actor_user_id=current_admin.id)
-    create_audit_log(db, current_admin.id, "update_status", "order", order_id, {"status": payload.status})
+    create_audit_log(db, current_admin.id, "update_status", "order", order_id, {"old_status": old_status, "new_status": payload.status})
     return updated
 
 

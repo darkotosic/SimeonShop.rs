@@ -1,8 +1,7 @@
 'use client';
 
-/* eslint-disable react-hooks/set-state-in-effect */
+/* eslint-disable react-hooks/set-state-in-effect, @next/next/no-img-element */
 
-import Image from 'next/image';
 import { useEffect, useState } from 'react';
 import type { Order } from '@/lib/api';
 import { ApiError, getAdminOrders, updateAdminOrderInternalNote, updateAdminOrderStatus } from '@/lib/api';
@@ -100,7 +99,7 @@ export function AdminOrdersPanel() {
                     <ul className="space-y-2">
                       {order.items.map((item) => (
                         <li key={item.id} className="flex gap-2">
-                          {item.product_image_url && <Image src={item.product_image_url} alt={item.product_name} width={40} height={40} className="h-10 w-10 object-cover" />}
+                          {item.product_image_url && <img src={item.product_image_url} alt={item.product_name} className="h-10 w-10 object-cover" loading="lazy" />}
                           <span>{item.product_name}{item.variant_label ? ` • ${item.variant_label}` : ''} × {item.quantity}</span>
                         </li>
                       ))}

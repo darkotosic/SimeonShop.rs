@@ -1,3 +1,4 @@
+import Link from 'next/link';
 import type { Metadata } from 'next';
 import { SectionHeader } from '@/components/SectionHeader';
 import { ProductFilters } from '@/components/ProductFilters';
@@ -9,14 +10,103 @@ export const metadata: Metadata = { title: 'Proizvodi', description: 'Pregled Si
 type SearchParams = Promise<Record<string, string | string[] | undefined>>;
 const first = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] : value;
 
+const toCents = (value?: string) => {
+  if (!value) return undefined;
+  const normalized = value.replace(',', '.').trim();
+  const parsed = Number(normalized);
+  if (!Number.isFinite(parsed) || parsed < 0) return undefined;
+  return String(Math.round(parsed * 100));
+};
+
+function createPageHref(params: Record<string, string | undefined>, page: number) {
+  const search = new URLSearchParams();
+  Object.entries(params).forEach(([key, value]) => {
+    if (key !== 'page' && value) search.set(key, value);
+  });
+  if (page > 1) search.set('page', String(page));
+  const query = search.toString();
+  return query ? `/products?${query}` : '/products';
+}
+
 async function loadCatalog(params: Record<string, string | undefined>): Promise<{ products: ProductListResponse; categories: Category[] } | null> {
-  try { const [products, categories] = await Promise.all([getProducts(params), getCategories().catch(() => [])]); return { products, categories }; } catch { return null; }
+  try {
+    const [products, categories] = await Promise.all([getProducts(params), getCategories().catch(() => [])]);
+    return { products, categories };
+  } catch {
+    return null;
+  }
 }
 
 export default async function ProductsPage({ searchParams }: { searchParams: SearchParams }) {
   const raw = await searchParams;
-  const params = { q: first(raw.q), category: first(raw.category), min_price: first(raw.min_price), max_price: first(raw.max_price), sort: first(raw.sort), page: first(raw.page) };
-  const catalog = await loadCatalog(params);
-  if (!catalog) return <main className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8"><SectionHeader eyebrow="Shop" title="Proizvodi" description="Katalog trenutno nije dostupan. Pokušajte kasnije." /><div className="mt-8 border border-amber-200 bg-amber-50 p-6 text-amber-900">Katalog trenutno nije dostupan. Pokušajte kasnije.</div></main>;
-  return <main className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8"><SectionHeader eyebrow="Shop" title="Proizvodi" description="Katalog garderobe dostupan za poručivanje preko web sajta, Instagrama i Facebook kanala." /><div className="mt-8 grid gap-6 lg:grid-cols-[280px_1fr]"><ProductFilters categories={catalog.categories} searchParams={params} /><div><ProductGrid products={catalog.products.items} />{catalog.products.pages > 1 && <p className="mt-6 text-sm text-slate-600">Strana {catalog.products.page} od {catalog.products.pages}</p>}</div></div></main>;
+  const uiParams = {
+    q: first(raw.q),
+    category: first(raw.category),
+    min_price_rsd: first(raw.min_price_rsd) ?? first(raw.min_price),
+    max_price_rsd: first(raw.max_price_rsd) ?? first(raw.max_price),
+    sort: first(raw.sort),
+    page: first(raw.page),
+  };
+  const apiParams = {
+    q: uiParams.q,
+    category: uiParams.category,
+    min_price: toCents(uiParams.min_price_rsd),
+    max_price: toCents(uiParams.max_price_rsd),
+    sort: uiParams.sort,
+    page: uiParams.page,
+  };
+  const catalog = await loadCatalog(apiParams);
+
+  if (!catalog) {
+    return (
+      <main className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
+        <SectionHeader eyebrow="Shop" title="Proizvodi" description="Katalog trenutno nije dostupan. Pokušajte kasnije." />
+        <div className="mt-8 border border-amber-200 bg-amber-50 p-6 text-amber-900">Katalog trenutno nije dostupan. Pokušajte kasnije.</div>
+      </main>
+    );
+  }
+
+  const { page, pages } = catalog.products;
+  const hasPrevious = page > 1;
+  const hasNext = page < pages;
+
+  return (
+    <main className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
+      <SectionHeader eyebrow="Shop" title="Proizvodi" description="Katalog garderobe dostupan za poručivanje preko web sajta, Instagrama i Facebook kanala." />
+      <div className="mt-8 grid gap-6 lg:grid-cols-[280px_1fr]">
+        <ProductFilters categories={catalog.categories} searchParams={uiParams} />
+        <div>
+          <ProductGrid products={catalog.products.items} />
+          {catalog.products.items.length === 0 && (
+            <div className="mt-6 border border-slate-200 bg-white p-6 text-sm text-slate-700">
+              <p className="font-semibold text-primary">Nema proizvoda za izabrane filtere.</p>
+              <div className="mt-4 flex flex-wrap gap-3">
+                <Link href="/products" className="border border-primary px-4 py-2 font-semibold text-primary">Resetuj filtere</Link>
+                <Link href="/products" className="bg-primary px-4 py-2 font-semibold text-white">Pogledaj sve proizvode</Link>
+              </div>
+            </div>
+          )}
+          {pages > 1 && (
+            <nav className="mt-6 flex flex-wrap items-center gap-3 text-sm text-slate-600" aria-label="Paginacija proizvoda">
+              <Link
+                href={createPageHref(uiParams, page - 1)}
+                aria-disabled={!hasPrevious}
+                className={`border px-4 py-2 font-semibold ${hasPrevious ? 'border-slate-300 text-primary' : 'pointer-events-none border-slate-200 text-slate-400'}`}
+              >
+                Prethodna
+              </Link>
+              <span>Strana {page} od {pages}</span>
+              <Link
+                href={createPageHref(uiParams, page + 1)}
+                aria-disabled={!hasNext}
+                className={`border px-4 py-2 font-semibold ${hasNext ? 'border-slate-300 text-primary' : 'pointer-events-none border-slate-200 text-slate-400'}`}
+              >
+                Sledeća
+              </Link>
+            </nav>
+          )}
+        </div>
+      </div>
+    </main>
+  );
 }

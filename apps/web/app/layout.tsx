@@ -6,7 +6,6 @@ import '../styles/globals.css';
 const fallbackBrandName = process.env.NEXT_PUBLIC_BRAND_NAME ?? 'Simeon Shop';
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
 const fallbackLogoUrl = process.env.NEXT_PUBLIC_LOGO_URL;
-const fallbackContactEmail = process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? 'dev@simeonshop.rs';
 
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
@@ -26,7 +25,7 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const settings = await loadPublicStoreSettings();
   const brandName = settings.company_name ?? fallbackBrandName;
-  const contactEmail = settings.store_email ?? fallbackContactEmail;
+  const contactEmail = settings.store_email;
   const sameAs = [settings.instagram_url, settings.facebook_url].filter(Boolean);
   const jsonLd = [
     {
@@ -91,8 +90,9 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             <div className="flex flex-col gap-2">
               {settings.instagram_url && <a href={settings.instagram_url} rel="noreferrer" target="_blank">Instagram</a>}
               {settings.facebook_url && <a href={settings.facebook_url} rel="noreferrer" target="_blank">Facebook</a>}
-              <span>{contactEmail}</span>
+              {contactEmail && <span>{contactEmail}</span>}
               {settings.store_phone && <span>{settings.store_phone}</span>}
+              {!contactEmail && !settings.store_phone && <span>Kontakt podaci još nisu podešeni.</span>}
             </div>
           </div>
         </footer>

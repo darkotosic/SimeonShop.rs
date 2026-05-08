@@ -5,6 +5,7 @@ def test_public_store_settings_filters_private_and_needs_no_auth(client, db):
     db.add(StoreSetting(key="store_email", value="info@simeonshop.rs", is_public=True))
     db.add(StoreSetting(key="jwt_secret_note", value="private", is_public=True))
     db.add(StoreSetting(key="company_tax_id", value="123", is_public=False))
+    db.add(StoreSetting(key="store_phone", value="+381 11 123 456", is_public=False))
     db.commit()
 
     response = client.get("/api/v1/store/settings")

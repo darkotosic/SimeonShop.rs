@@ -23,6 +23,8 @@ def _send_order_emails(order):
         logger.exception("Order email failed; checkout remains successful.")
 
 
+# Legacy/internal logged-in checkout. The public storefront uses /guest-checkout.
+# TODO: add idempotency and product snapshot support before exposing this endpoint publicly.
 @router.post("/checkout", response_model=OrderRead, status_code=status.HTTP_201_CREATED)
 def checkout(
     payload: CheckoutCreate,

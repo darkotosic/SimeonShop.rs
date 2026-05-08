@@ -1,18 +1,40 @@
 from datetime import datetime
+import re
 
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic_core import PydanticCustomError
 
 
 class CheckoutCreate(BaseModel):
     customer_name: str = Field(min_length=2, max_length=255)
     customer_email: EmailStr | None = None
-    customer_phone: str = Field(min_length=5, max_length=80)
+    customer_phone: str = Field(min_length=6, max_length=80)
     shipping_city: str = Field(min_length=2, max_length=160)
-    shipping_postal_code: str = Field(min_length=2, max_length=32)
+    shipping_postal_code: str = Field(min_length=5, max_length=5)
     shipping_address: str = Field(min_length=5, max_length=500)
+    accepted_terms: Literal[True]
     note: str | None = None
+
+    @field_validator("customer_phone")
+    @classmethod
+    def validate_phone(cls, value: str) -> str:
+        normalized = value.strip()
+        if not re.fullmatch(r"[0-9+/\-\s]{6,80}", normalized):
+            raise PydanticCustomError("phone_invalid_characters", "Phone number contains invalid characters.")
+        digits = re.sub(r"\D", "", normalized)
+        if len(digits) < 6:
+            raise PydanticCustomError("phone_too_short", "Phone number is too short.")
+        return normalized
+
+    @field_validator("shipping_postal_code")
+    @classmethod
+    def validate_postal_code(cls, value: str) -> str:
+        normalized = value.strip()
+        if not re.fullmatch(r"\d{5}", normalized):
+            raise PydanticCustomError("postal_code_invalid", "Postal code must contain exactly 5 digits.")
+        return normalized
 
 
 class GuestCheckoutItem(BaseModel):
@@ -22,7 +44,6 @@ class GuestCheckoutItem(BaseModel):
 
 
 class GuestCheckoutCreate(CheckoutCreate):
-    accepted_terms: Literal[True]
     source: str | None = Field(default="web", max_length=80)
     idempotency_key: str | None = Field(default=None, max_length=120, pattern=r"^[A-Za-z0-9._:-]{8,120}$")
     items: list[GuestCheckoutItem] = Field(min_length=1, max_length=50)

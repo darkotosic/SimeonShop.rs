@@ -21,10 +21,13 @@ async function proxy(request: NextRequest, context: Context) {
   headers.set('Authorization', `Bearer ${token}`);
   if (!headers.has('Content-Type') && request.method !== 'GET' && request.method !== 'HEAD') headers.set('Content-Type', 'application/json');
 
+  const hasBody = request.method !== 'GET' && request.method !== 'HEAD';
+  const body = hasBody ? await request.arrayBuffer() : undefined;
+
   const response = await fetch(`${apiBaseUrl}${upstreamPath}${request.nextUrl.search}`, {
     method: request.method,
     headers,
-    body: request.method === 'GET' || request.method === 'HEAD' ? undefined : await request.text(),
+    body,
     cache: 'no-store',
   });
 

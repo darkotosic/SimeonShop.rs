@@ -120,7 +120,10 @@ export function AdminProductsPanel() {
 
       <div className="space-y-4">
         {filtered.map((product) => {
-          const stock = product.effective_stock_quantity ?? product.stock_quantity;
+          const activeVariants = product.variants.filter((variant) => variant.is_active);
+          const baseStock = product.stock_quantity;
+          const variantStock = activeVariants.reduce((sum, variant) => sum + variant.stock_quantity, 0);
+          const stock = product.effective_stock_quantity ?? (activeVariants.length > 0 ? variantStock : baseStock);
           const primaryImage = product.images.find((image) => image.is_primary) ?? product.images[0];
           return (
             <article key={product.id} className="space-y-3 border border-slate-200 bg-white p-4">
@@ -131,7 +134,9 @@ export function AdminProductsPanel() {
                     <h3 className="font-bold">{product.name}</h3>
                     <p className="truncate text-sm text-slate-500">{product.slug} · {product.sku ?? 'bez SKU'}</p>
                     <div className="mt-2 flex flex-wrap gap-2 text-xs">
-                      <span className={`px-2 py-1 ${stock > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>Zalihe: {stock}</span>
+                      <span className="bg-slate-100 px-2 py-1 text-slate-700">Base stock: {baseStock}</span>
+                      <span className="bg-slate-100 px-2 py-1 text-slate-700">Variant total stock: {variantStock}</span>
+                      <span className={`px-2 py-1 ${stock > 0 ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}>Effective stock: {stock}</span>
                       <span className={`px-2 py-1 ${product.is_active ? 'bg-blue-100 text-blue-800' : 'bg-slate-100 text-slate-700'}`}>{product.is_active ? 'Aktivan' : 'Neaktivan'}</span>
                     </div>
                   </div>

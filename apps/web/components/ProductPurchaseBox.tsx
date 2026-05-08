@@ -34,9 +34,9 @@ export function ProductPurchaseBox({ product }: { product: Product }) {
           </select>
         </label>
       )}
-      {requiresVariant && !selectedVariant && <p className="rounded-lg bg-amber-50 p-3 text-amber-800">Izaberite veličinu/boju pre dodavanja u korpu.</p>}
+      {requiresVariant && !selectedVariant && <p className="rounded-lg bg-amber-50 p-3 text-amber-800">Izaberite varijantu za dostupnost.</p>}
       {selectedOutOfStock && <p className="rounded-lg bg-red-50 p-3 font-medium text-red-700">Izabrana varijanta nema na stanju.</p>}
-      <p>Stanje: {stock === undefined ? 'izaberite varijantu' : stock > 0 ? `${stock} komada dostupno` : 'Nema na stanju'}</p>
+      <p>Stanje: {stock === undefined ? 'Izaberite varijantu za dostupnost' : stock > 0 ? `${stock} komada dostupno` : 'Nema na stanju'}</p>
       {sku && <p>SKU: {sku}</p>}
       <AddToCartButton product={product} selectedVariant={selectedVariant} requiresVariant={requiresVariant} />
     </div>

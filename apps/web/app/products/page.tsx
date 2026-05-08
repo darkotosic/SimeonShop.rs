@@ -18,6 +18,13 @@ const toCents = (value?: string) => {
   return String(Math.round(parsed * 100));
 };
 
+const toPage = (value?: string) => {
+  if (!value) return undefined;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) return undefined;
+  return String(parsed);
+};
+
 function createPageHref(params: Record<string, string | undefined>, page: number) {
   const search = new URLSearchParams();
   Object.entries(params).forEach(([key, value]) => {
@@ -53,7 +60,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
     min_price: toCents(uiParams.min_price_rsd),
     max_price: toCents(uiParams.max_price_rsd),
     sort: uiParams.sort,
-    page: uiParams.page,
+    page: toPage(uiParams.page),
   };
   const catalog = await loadCatalog(apiParams);
 
@@ -78,11 +85,12 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
         <div>
           <ProductGrid products={catalog.products.items} />
           {catalog.products.items.length === 0 && (
-            <div className="mt-6 border border-slate-200 bg-white p-6 text-sm text-slate-700">
-              <p className="font-semibold text-primary">Nema proizvoda za izabrane filtere.</p>
+            <div className="mt-6 rounded-3xl border border-slate-200 bg-white p-8 text-sm text-slate-700">
+              <p className="text-lg font-semibold text-primary">Nema proizvoda za izabrane filtere.</p>
+              <p className="mt-2 text-slate-600">Probajte širi raspon RSD cena, uklonite kategoriju ili pogledajte celu kolekciju.</p>
               <div className="mt-4 flex flex-wrap gap-3">
                 <Link href="/products" className="border border-primary px-4 py-2 font-semibold text-primary">Resetuj filtere</Link>
-                <Link href="/products" className="bg-primary px-4 py-2 font-semibold text-white">Pogledaj sve proizvode</Link>
+                <Link href="/contact" className="bg-primary px-4 py-2 font-semibold text-white">Pitaj za preporuku</Link>
               </div>
             </div>
           )}

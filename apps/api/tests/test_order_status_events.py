@@ -12,13 +12,13 @@ def _order(db):
 
 def test_status_event_created_when_status_changes(db):
     order = _order(db)
-    updated = update_order_status(db, order, "delivered", actor_user_id=None)
+    updated = update_order_status(db, order, "confirmed", actor_user_id=None)
 
     events = db.query(OrderStatusEvent).filter(OrderStatusEvent.order_id == order.id).all()
     assert len(events) == 1
     assert events[0].old_status == "new"
-    assert events[0].new_status == "delivered"
-    assert updated.delivered_at is not None
+    assert events[0].new_status == "confirmed"
+    assert updated.confirmed_at is not None
 
 
 def test_cancelled_timestamp_is_populated(db):

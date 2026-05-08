@@ -120,6 +120,14 @@ class OrderRead(BaseModel):
     status_events: list[OrderStatusEventRead] = []
 
 
+class AdminOrderListResponse(BaseModel):
+    items: list[OrderRead]
+    total: int
+    page: int
+    page_size: int
+    pages: int
+
+
 class LowStockProductRead(BaseModel):
     id: int
     name: str

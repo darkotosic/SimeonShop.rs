@@ -6,11 +6,33 @@ const blockedHeaders = new Set(['host', 'connection', 'content-length', 'cookie'
 
 type Context = { params: Promise<{ path?: string[] }> };
 
+function isMutation(method: string) {
+  return !['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase());
+}
+
+function allowedAdminOrigins() {
+  const origins = new Set<string>();
+  if (process.env.NEXT_PUBLIC_SITE_URL) origins.add(process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, ''));
+  if (process.env.NODE_ENV !== 'production') origins.add('http://localhost:3000');
+  return origins;
+}
+
+function hasValidOrigin(request: NextRequest) {
+  const origin = request.headers.get('origin')?.replace(/\/$/, '');
+  if (!origin) return process.env.NODE_ENV !== 'production';
+  return allowedAdminOrigins().has(origin);
+}
+
 async function proxy(request: NextRequest, context: Context) {
   const { path = [] } = await context.params;
   const upstreamPath = `/${path.join('/')}`;
   if (!upstreamPath.startsWith('/api/v1/admin')) {
     return NextResponse.json({ detail: 'Admin proxy only allows /api/v1/admin paths.' }, { status: 403 });
+  }
+
+  // Admin auth token is httpOnly; mutation requests are additionally origin-checked.
+  if (isMutation(request.method) && !hasValidOrigin(request)) {
+    return NextResponse.json({ detail: 'Invalid admin request origin.' }, { status: 403 });
   }
 
   const token = (await cookies()).get('simeonshop_admin_token')?.value;

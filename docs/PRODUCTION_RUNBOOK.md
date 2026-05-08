@@ -87,6 +87,17 @@ alembic upgrade head
 3. Restartovati Render servis.
 4. Proveriti da bootstrap-admin endpoint više ne radi.
 
+## Admin proxy security
+
+Admin API calls from the Next.js application go through `/api/admin/proxy/...` so the backend JWT stays in an httpOnly cookie instead of browser-accessible storage. Mutation methods (`POST`, `PATCH`, `PUT`, and `DELETE`) are additionally protected with an `Origin` check:
+
+- Production allows only `NEXT_PUBLIC_SITE_URL` (for example, `https://simeonshop.rs`).
+- Development also allows `http://localhost:3000` to keep local admin tooling usable.
+- Production mutation requests without an `Origin` header, or with a cross-site origin, return `403` with `detail="Invalid admin request origin."`.
+- `GET`, `HEAD`, and `OPTIONS` admin proxy requests are not blocked by this Origin hardening, so dashboard reads and CSV downloads continue to work normally.
+
+Keep `NEXT_PUBLIC_SITE_URL` aligned with the deployed storefront domain before enabling production traffic. A CSRF token cookie/header can be layered on later if stricter double-submit protection is required.
+
 ## Verify an order
 
 1. Add an active product to cart.

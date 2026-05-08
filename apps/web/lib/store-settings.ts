@@ -1,17 +1,19 @@
 import { getPublicStoreSettings, type PublicStoreSettings } from './api';
 
+const optionalEnv = (value: string | undefined) => value?.trim() || null;
+
 export const fallbackStoreSettings = (): PublicStoreSettings => ({
-  store_phone: process.env.NEXT_PUBLIC_CONTACT_PHONE ?? '+381 00 000 000',
-  store_email: process.env.NEXT_PUBLIC_CONTACT_EMAIL ?? 'dev@simeonshop.rs',
-  instagram_url: process.env.NEXT_PUBLIC_INSTAGRAM_URL ?? null,
-  facebook_url: process.env.NEXT_PUBLIC_FACEBOOK_URL ?? null,
-  delivery_note: process.env.NEXT_PUBLIC_DELIVERY_NOTE ?? 'Porudžbine šaljemo nakon potvrde dostupnosti. Plaćanje je moguće pouzećem.',
-  return_policy_short: process.env.NEXT_PUBLIC_RETURN_POLICY_SHORT ?? 'Zamena ili povraćaj su mogući za nekorišćene proizvode u originalnom stanju.',
-  company_name: process.env.NEXT_PUBLIC_COMPANY_NAME ?? process.env.NEXT_PUBLIC_BRAND_NAME ?? 'Simeon Shop',
-  company_address: process.env.NEXT_PUBLIC_COMPANY_ADDRESS ?? null,
-  company_registration_number: process.env.NEXT_PUBLIC_COMPANY_REGISTRATION_NUMBER ?? null,
-  company_tax_id: process.env.NEXT_PUBLIC_COMPANY_TAX_ID ?? null,
-  logo_url: process.env.NEXT_PUBLIC_LOGO_URL ?? null,
+  store_phone: optionalEnv(process.env.NEXT_PUBLIC_CONTACT_PHONE),
+  store_email: optionalEnv(process.env.NEXT_PUBLIC_CONTACT_EMAIL),
+  instagram_url: optionalEnv(process.env.NEXT_PUBLIC_INSTAGRAM_URL),
+  facebook_url: optionalEnv(process.env.NEXT_PUBLIC_FACEBOOK_URL),
+  delivery_note: optionalEnv(process.env.NEXT_PUBLIC_DELIVERY_NOTE),
+  return_policy_short: optionalEnv(process.env.NEXT_PUBLIC_RETURN_POLICY_SHORT),
+  company_name: optionalEnv(process.env.NEXT_PUBLIC_COMPANY_NAME),
+  company_address: optionalEnv(process.env.NEXT_PUBLIC_COMPANY_ADDRESS),
+  company_registration_number: optionalEnv(process.env.NEXT_PUBLIC_COMPANY_REGISTRATION_NUMBER),
+  company_tax_id: optionalEnv(process.env.NEXT_PUBLIC_COMPANY_TAX_ID),
+  logo_url: optionalEnv(process.env.NEXT_PUBLIC_LOGO_URL),
 });
 
 export async function loadPublicStoreSettings(): Promise<PublicStoreSettings> {

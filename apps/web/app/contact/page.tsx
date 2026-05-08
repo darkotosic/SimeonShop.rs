@@ -14,8 +14,8 @@ export default async function ContactPage() {
     <main className="mx-auto max-w-4xl px-4 py-12 sm:px-6 lg:px-8">
       <SectionHeader title="Kontakt" description="Za pitanja o proizvodima i porudžbinama kontaktirajte nas direktno." />
       <div className="mt-8 space-y-3 border border-slate-200 bg-white p-6 text-slate-700">
-        <p><strong>Email:</strong> {settings.store_email}</p>
-        <p><strong>Telefon:</strong> {settings.store_phone}</p>
+        {settings.store_email ? <p><strong>Email:</strong> {settings.store_email}</p> : <p>Kontakt email još nije podešen.</p>}
+        {settings.store_phone && <p><strong>Telefon:</strong> {settings.store_phone}</p>}
         {settings.company_name && <p><strong>Prodavac:</strong> {settings.company_name}</p>}
         {settings.company_address && <p><strong>Adresa:</strong> {settings.company_address}</p>}
         {settings.company_registration_number && <p><strong>Matični broj:</strong> {settings.company_registration_number}</p>}

@@ -8,11 +8,15 @@ export default async function ReturnsPage() {
   return (
     <main className="mx-auto max-w-4xl px-4 py-12">
       <h1 className="text-4xl font-bold text-primary">Povraćaj i reklamacije</h1>
-      <p className="mt-4 text-slate-700">{settings.return_policy_short}</p>
+      <p className="mt-4 text-slate-700">{settings.return_policy_short ?? 'Detalji povraćaja i reklamacija biće dostupni nakon potvrde sa podrškom.'}</p>
       <div className="mt-6 space-y-3 rounded-3xl bg-slate-50 p-6 text-slate-700">
         <p>Za zamenu veličine, povraćaj ili reklamaciju javite nam se sa brojem porudžbine.</p>
         <p>Proizvod treba vratiti nekorišćen, u originalnom stanju, osim kada je u pitanju opravdana reklamacija.</p>
-        <p>Kontakt: {settings.store_email} {settings.store_phone ? `• ${settings.store_phone}` : ''}</p>
+        {(settings.store_email || settings.store_phone) ? (
+          <p>Kontakt: {[settings.store_email, settings.store_phone].filter(Boolean).join(' • ')}</p>
+        ) : (
+          <p>Kontakt podaci podrške još nisu podešeni.</p>
+        )}
       </div>
     </main>
   );

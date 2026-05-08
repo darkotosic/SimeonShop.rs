@@ -5,6 +5,8 @@ export const metadata: Metadata = { title: 'Politika privatnosti', description: 
 
 export default async function PrivacyPolicyPage() {
   const settings = await loadPublicStoreSettings();
+  const contact = [settings.store_email, settings.store_phone].filter(Boolean).join(' • ');
+
   return (
     <main className="mx-auto max-w-4xl px-4 py-12 text-slate-700">
       <h1 className="text-4xl font-bold text-primary">Politika privatnosti</h1>
@@ -15,8 +17,11 @@ export default async function PrivacyPolicyPage() {
       </section>
       <section className="mt-8 space-y-3">
         <h2 className="text-2xl font-semibold text-slate-900">Kontakt za privatnost</h2>
-        <p>{settings.company_name}</p>
-        <p>{settings.store_email} {settings.store_phone ? `• ${settings.store_phone}` : ''}</p>
+        {settings.company_name && <p>{settings.company_name}</p>}
+        {settings.company_address && <p>{settings.company_address}</p>}
+        {settings.company_registration_number && <p>Matični broj: {settings.company_registration_number}</p>}
+        {settings.company_tax_id && <p>PIB: {settings.company_tax_id}</p>}
+        {contact ? <p>{contact}</p> : <p>Kontakt podaci za privatnost trenutno nisu javno podešeni.</p>}
       </section>
     </main>
   );

@@ -7,11 +7,16 @@
 - **Database:** Render PostgreSQL managed database.
 - **Media:** Cloudinary for product image uploads.
 
+## Canonical checkout flow
+
+The canonical production checkout endpoint is `/api/v1/orders/guest-checkout`. The authenticated `/api/v1/orders/checkout` endpoint is legacy/internal and reserved for future authenticated-user carts; do not expose it in the public storefront until idempotency and full order item snapshots are implemented.
+
 ## Verify frontend
 
 1. Open `https://simeonshop.rs` and confirm homepage renders.
 2. Open `/products`, one product detail page, `/cart`, `/checkout`, and legal pages.
 3. Confirm Netlify build used `npm run build` from `apps/web`.
+4. Confirm the public footer does not link to `/admin/login`.
 
 ## Verify backend health
 
@@ -36,17 +41,19 @@ Backend required:
 - `ALLOWED_ORIGINS`
 - `FRONTEND_URL`
 - `MEDIA_PROVIDER=cloudinary`
-- `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET`
+- `CLOUDINARY_CLOUD_NAME`
+- `CLOUDINARY_API_KEY`
+- `CLOUDINARY_API_SECRET`
 
 Frontend required:
 
+- `API_BASE_URL`
 - `NEXT_PUBLIC_API_BASE_URL`
 - `NEXT_PUBLIC_SITE_URL=https://simeonshop.rs`
-- `API_BASE_URL` for server-side/proxy calls where needed
 
 ## Run migrations
 
-Render start command uses `apps/api/start.sh`, which runs:
+Render Docker start must use `/app/start.sh`. The script runs migrations before Uvicorn:
 
 ```bash
 alembic upgrade head
@@ -66,13 +73,12 @@ alembic upgrade head
 2. Call the bootstrap admin endpoint documented in the API README or internal deployment notes.
 3. Confirm admin can log in at `/admin/login`.
 
-## Remove BOOTSTRAP_ADMIN_TOKEN
+### Kako ukloniti BOOTSTRAP_ADMIN_TOKEN
 
-After the first admin is created:
-
-1. Remove `BOOTSTRAP_ADMIN_TOKEN` from Render environment.
-2. Redeploy/restart backend.
-3. Confirm public registration/bootstrap cannot create another admin.
+1. Kreirati prvog admina.
+2. Obrisati env varijablu `BOOTSTRAP_ADMIN_TOKEN` ili je ostaviti praznu.
+3. Restartovati Render servis.
+4. Proveriti da bootstrap-admin endpoint više ne radi.
 
 ## Verify an order
 
@@ -80,6 +86,32 @@ After the first admin is created:
 2. Complete checkout and accept terms.
 3. Confirm success page shows an order number.
 4. In admin, verify order items include product snapshot data, variant label, and internal note field.
+
+### Kako proveriti order lifecycle
+
+1. Kreirati test porudžbinu.
+2. Promeniti `new -> confirmed`.
+3. Promeniti `confirmed -> packed`.
+4. Promeniti `packed -> shipped`.
+5. Promeniti `shipped -> delivered`.
+6. Pokušati `delivered -> cancelled` i potvrditi da vraća `400`.
+
+### Kako proveriti checkout validation
+
+1. Testirati telefon `+381`.
+2. Testirati telefon sa slovima.
+3. Testirati poštanski broj `11000`.
+4. Testirati poštanski broj `11A00`.
+5. Potvrditi da checkout bez `accepted_terms` ne prolazi.
+6. Potvrditi da prazan cart ne prolazi.
+
+### Kako proveriti Cloudinary upload
+
+1. U adminu kreirati proizvod.
+2. Uploadovati sliku.
+3. Proveriti `ProductImage` zapis.
+4. Proveriti da slika dolazi sa `res.cloudinary.com`.
+5. Proveriti audit log metadata za `product_id`, `image_url`, `content_type`, `size_bytes`.
 
 ## Verify email notifications
 

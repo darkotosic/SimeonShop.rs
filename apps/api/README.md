@@ -1,6 +1,6 @@
 # Backend - SimeonShop.rs API
 
-FastAPI-based REST API for SimeonShop.rs e-commerce platform.
+FastAPI-based REST API for SimeonShop.rs e-commerce platform. Current status: pre-production foundation with PostgreSQL/Alembic models, JWT admin auth, protected admin routes, guest checkout, order lifecycle validation, checkout validation, audit logs, and Cloudinary-ready product image upload.
 
 ## 🚀 Quick Start
 
@@ -72,22 +72,22 @@ All endpoints are under `/api/v1` prefix.
   - Returns: `{"status": "ok", "message": "...", "version": "1.0.0"}`
 
 ### Products
-- **GET** `/api/v1/products` - Get all products
-  - Query params: `skip=0, limit=10`
-  - Returns: List of products with pagination
-
-- **GET** `/api/v1/products/{product_id}` - Get product by ID
-  - Returns: Single product details
+- **GET** `/api/v1/products` - Get active products with pagination/filter parameters.
+- **GET** `/api/v1/products/{slug}` - Get active product detail by slug.
+- Public product data includes category, images, variants, stock, SEO-ready slugs, and snapshot fields used by checkout.
 
 ### Orders
-- **POST** `/api/v1/orders` - Create new order
-  - Body: `{customer_name, items}`
-  - Returns: Order confirmation with ID
+- **POST** `/api/v1/orders/guest-checkout` - Canonical public storefront checkout. Requires `accepted_terms=true`, customer/shipping fields, non-empty items, and captures order item snapshots.
+- **POST** `/api/v1/orders/checkout` - Legacy/internal authenticated-user checkout for future logged-in carts only. It requires auth and `accepted_terms=true`; do not expose it publicly until idempotency and full order item snapshots are implemented.
+- **GET** `/api/v1/orders/me` - Authenticated user's orders.
+- **GET** `/api/v1/orders` - Admin order list.
+- **PATCH** `/api/v1/orders/{order_id}/status` - Admin status update with lifecycle validation.
 
-### Admin
-- **POST** `/api/v1/admin/login` - Admin login
-  - Body: `{email, password}`
-  - Returns: Access token and user info
+### Auth and Admin
+- **POST** `/api/v1/auth/login` - Login and receive a JWT.
+- **POST** `/api/v1/auth/bootstrap-admin` - Temporary first-admin creation guarded by `BOOTSTRAP_ADMIN_TOKEN`.
+- **GET/PATCH/POST/DELETE** `/api/v1/admin/*` - Protected admin APIs for summary, products, categories, orders, settings, audit logs, variants, and product images.
+- **POST** `/api/v1/admin/products/{product_id}/images/upload` - Protected multipart Cloudinary upload with MIME/extension/size validation and audit metadata.
 
 ## 🔧 Configuration
 
@@ -95,10 +95,19 @@ All endpoints are under `/api/v1` prefix.
 ```env
 # .env
 APP_ENV=development
+DATABASE_URL=sqlite:///./dev.db
+JWT_SECRET=replace-with-local-secret
 ALLOWED_ORIGINS=http://localhost:3000,http://localhost:8000
 HOST=0.0.0.0
 PORT=8000
+MEDIA_PROVIDER=cloudinary
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
+BOOTSTRAP_ADMIN_TOKEN=temporary-local-bootstrap-token
 ```
+
+Remove or blank `BOOTSTRAP_ADMIN_TOKEN` after the first admin exists. Production Cloudinary upload requires the Cloudinary variables above.
 
 ### CORS Configuration
 CORS is configured to allow requests from `ALLOWED_ORIGINS`:
@@ -124,18 +133,15 @@ Interactive documentation available at:
 
 See `requirements.txt` for all dependencies.
 
-## 🧪 Testing (Planned)
+## 🧪 Testing
 
 ```bash
-# Install pytest
-pip install pytest pytest-asyncio
-
-# Run tests
+python -m compileall app
 pytest
-
-# Run with coverage
-pytest --cov=app
+alembic upgrade head
 ```
+
+The test suite covers health checks, checkout validation, guest checkout idempotency, legacy checkout terms/auth requirements, order item snapshots, order status transitions, audit logs, and product image upload validation.
 
 ## 🚀 Deployment
 
@@ -147,7 +153,7 @@ uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 
 ### Docker production start
 
-The production Docker image starts with `/app/start.sh`, which runs `alembic upgrade head` before launching Uvicorn with proxy headers. Keep Render/Docker start commands aligned with this behavior so migrations are not skipped.
+The production Docker image starts with `/app/start.sh`, which runs `alembic upgrade head` before launching `uvicorn app.main:app --host 0.0.0.0 --port "${PORT:-8000}" --proxy-headers`. Keep Render/Docker start commands aligned with this behavior so migrations are not skipped.
 
 ### Production with Gunicorn
 ```bash
@@ -156,14 +162,8 @@ gunicorn app.main:app --workers 4 --worker-class uvicorn.workers.UvicornWorker
 ```
 
 ### Docker
-```dockerfile
-FROM python:3.12
-WORKDIR /app
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-COPY app ./app
-CMD ["python", "app/main.py"]
-```
+
+Use the repository `apps/api/Dockerfile`; it sets `CMD ["/app/start.sh"]` so migrations run before Uvicorn.
 
 ## 🔐 Security
 

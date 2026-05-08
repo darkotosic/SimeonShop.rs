@@ -68,3 +68,9 @@ def test_legacy_checkout_with_accepted_terms_creates_order(client, db):
     data = response.json()
     assert data["accepted_terms_at"] is not None
     assert data["source"] == "legacy_checkout"
+
+
+def test_legacy_checkout_requires_authorization(client):
+    response = client.post("/api/v1/orders/checkout", json=_payload(accepted_terms=True))
+
+    assert response.status_code in (401, 403)

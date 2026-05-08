@@ -2,6 +2,7 @@ from app.core.security import create_access_token
 from app.crud.product import create_product
 from app.crud.user import create_user
 from app.models.cart import Cart, CartItem
+from app.models.product_variant import ProductVariant
 from app.schemas.product import ProductCreate
 from app.schemas.user import UserCreate
 
@@ -74,3 +75,15 @@ def test_legacy_checkout_requires_authorization(client):
     response = client.post("/api/v1/orders/checkout", json=_payload(accepted_terms=True))
 
     assert response.status_code in (401, 403)
+
+
+def test_legacy_checkout_rejects_variant_products_without_variant_support(client, db):
+    user, headers = _auth_headers(db)
+    product = _cart_with_product(db, user.id)
+    db.add(ProductVariant(product_id=product.id, sku="LEG-L", size="L", stock_quantity=2, is_active=True))
+    db.commit()
+
+    response = client.post("/api/v1/orders/checkout", json=_payload(accepted_terms=True), headers=headers)
+
+    assert response.status_code == 400
+    assert "Select a product variant" in response.json()["detail"]

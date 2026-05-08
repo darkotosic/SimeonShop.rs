@@ -130,9 +130,26 @@ class LowStockProductRead(BaseModel):
     effective_stock_quantity: int
 
 
+class DailyRevenueRead(BaseModel):
+    date: str
+    revenue_cents: int
+
+
+class DailyOrdersRead(BaseModel):
+    date: str
+    orders_count: int
+
+
+class TopProductRead(BaseModel):
+    product_name: str
+    quantity_sold: int
+    revenue_cents: int
+
+
 class AdminSummaryRead(BaseModel):
     new_orders: int
     confirmed_orders: int
+    packed_orders: int
     shipped_orders: int
     delivered_orders: int
     cancelled_orders: int
@@ -143,3 +160,6 @@ class AdminSummaryRead(BaseModel):
     average_order_value_cents: int
     latest_orders: list[OrderRead]
     low_stock_products: list[LowStockProductRead]
+    revenue_by_day: list[DailyRevenueRead]
+    orders_by_day: list[DailyOrdersRead]
+    top_products: list[TopProductRead]

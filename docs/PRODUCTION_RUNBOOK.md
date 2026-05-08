@@ -11,6 +11,13 @@
 
 The canonical production checkout endpoint is `/api/v1/orders/guest-checkout`. The authenticated `/api/v1/orders/checkout` endpoint is legacy/internal and reserved for future authenticated-user carts; do not expose it in the public storefront until idempotency and full order item snapshots are implemented.
 
+Canonical production checkout endpoint:
+`POST /api/v1/orders/guest-checkout`
+
+Legacy endpoint:
+`POST /api/v1/orders/checkout`
+Koristi se samo za budući authenticated cart system.
+
 ## Verify frontend
 
 1. Open `https://simeonshop.rs` and confirm homepage renders.

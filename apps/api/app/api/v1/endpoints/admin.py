@@ -2,7 +2,7 @@ import csv
 import io
 from datetime import date, datetime, time, timedelta, timezone
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status as status_module
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
@@ -46,6 +46,9 @@ from app.services.audit import create_audit_log
 from app.services.media import upload_product_image
 
 router = APIRouter()
+
+ORDER_STATUSES = {"new", "confirmed", "packed", "shipped", "delivered", "cancelled"}
+
 
 
 def _get_product_or_404(db: Session, product_id: int) -> Product:
@@ -94,7 +97,7 @@ def _period_start(period_days: int) -> datetime:
 @router.get("/summary", response_model=AdminSummaryRead)
 def admin_summary(period_days: int = Query(default=30, ge=1, le=365), db: Session = Depends(get_db), current_admin: User = Depends(get_current_admin)):
     period_start = _period_start(period_days)
-    period_orders = db.query(Order).filter(Order.created_at >= period_start).all()
+    period_orders = db.query(Order).options(selectinload(Order.items)).filter(Order.created_at >= period_start).all()
     delivered_orders = [order for order in period_orders if order.status == "delivered"]
     active_products = db.query(Product).options(selectinload(Product.variants)).filter(Product.is_active.is_(True)).all()
     low_stock_products = sorted(
@@ -104,9 +107,31 @@ def admin_summary(period_days: int = Query(default=30, ge=1, le=365), db: Sessio
     total_revenue_cents = sum(order.total_cents for order in delivered_orders)
     orders_count_period = len(period_orders)
 
+    revenue_by_day_map: dict[str, int] = {}
+    orders_by_day_map: dict[str, int] = {}
+    top_products_map: dict[str, dict[str, int | str]] = {}
+
+    for order in period_orders:
+        day = order.created_at.date().isoformat() if order.created_at else "unknown"
+        orders_by_day_map[day] = orders_by_day_map.get(day, 0) + 1
+        if order.status != "delivered":
+            continue
+        revenue_by_day_map[day] = revenue_by_day_map.get(day, 0) + order.total_cents
+        for item in order.items:
+            product_name = item.product_name
+            metrics = top_products_map.setdefault(product_name, {"product_name": product_name, "quantity_sold": 0, "revenue_cents": 0})
+            metrics["quantity_sold"] = int(metrics["quantity_sold"]) + item.quantity
+            metrics["revenue_cents"] = int(metrics["revenue_cents"]) + item.total_price_cents
+
+    top_products = sorted(
+        top_products_map.values(),
+        key=lambda item: (-int(item["quantity_sold"]), -int(item["revenue_cents"]), str(item["product_name"]).lower()),
+    )[:10]
+
     return {
         "new_orders": sum(1 for order in period_orders if order.status == "new"),
         "confirmed_orders": sum(1 for order in period_orders if order.status == "confirmed"),
+        "packed_orders": sum(1 for order in period_orders if order.status == "packed"),
         "shipped_orders": sum(1 for order in period_orders if order.status == "shipped"),
         "delivered_orders": len(delivered_orders),
         "cancelled_orders": sum(1 for order in period_orders if order.status == "cancelled"),
@@ -128,6 +153,9 @@ def admin_summary(period_days: int = Query(default=30, ge=1, le=365), db: Sessio
             }
             for product in low_stock_products
         ],
+        "revenue_by_day": [{"date": key, "revenue_cents": revenue_by_day_map[key]} for key in sorted(revenue_by_day_map)],
+        "orders_by_day": [{"date": key, "orders_count": orders_by_day_map[key]} for key in sorted(orders_by_day_map)],
+        "top_products": top_products,
     }
 
 
@@ -136,7 +164,7 @@ def admin_products(page: int = 1, page_size: int = 12, db: Session = Depends(get
     return get_products(db, page=page, page_size=page_size, include_inactive=True)
 
 
-@router.post("/products", response_model=ProductRead, status_code=status.HTTP_201_CREATED)
+@router.post("/products", response_model=ProductRead, status_code=status_module.HTTP_201_CREATED)
 def admin_create_product(payload: ProductCreate, db: Session = Depends(get_db), current_admin: User = Depends(get_current_admin)):
     try:
         product = create_product(db, payload)
@@ -144,7 +172,7 @@ def admin_create_product(payload: ProductCreate, db: Session = Depends(get_db), 
         return product
     except IntegrityError as exc:
         db.rollback()
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Product slug or SKU already exists.") from exc
+        raise HTTPException(status_code=status_module.HTTP_409_CONFLICT, detail="Product slug or SKU already exists.") from exc
 
 
 @router.patch("/products/{product_id}", response_model=ProductRead)
@@ -157,7 +185,7 @@ def admin_update_product(product_id: int, payload: ProductUpdate, db: Session = 
     return updated
 
 
-@router.delete("/products/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/products/{product_id}", status_code=status_module.HTTP_204_NO_CONTENT)
 def admin_delete_product(product_id: int, db: Session = Depends(get_db), current_admin: User = Depends(get_current_admin)):
     product = get_product_by_id(db, product_id)
     if not product:
@@ -167,7 +195,7 @@ def admin_delete_product(product_id: int, db: Session = Depends(get_db), current
     return None
 
 
-@router.post("/products/{product_id}/images", response_model=ProductImageRead, status_code=status.HTTP_201_CREATED)
+@router.post("/products/{product_id}/images", response_model=ProductImageRead, status_code=status_module.HTTP_201_CREATED)
 def admin_create_product_image(
     product_id: int,
     payload: ProductImageCreate,
@@ -182,7 +210,7 @@ def admin_create_product_image(
 
 
 
-@router.post("/products/{product_id}/images/upload", response_model=ProductImageRead, status_code=status.HTTP_201_CREATED)
+@router.post("/products/{product_id}/images/upload", response_model=ProductImageRead, status_code=status_module.HTTP_201_CREATED)
 async def admin_upload_product_image(
     product_id: int,
     file: UploadFile = File(...),
@@ -235,7 +263,7 @@ def admin_update_product_image(
     return updated
 
 
-@router.delete("/products/{product_id}/images/{image_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/products/{product_id}/images/{image_id}", status_code=status_module.HTTP_204_NO_CONTENT)
 def admin_delete_product_image(
     product_id: int,
     image_id: int,
@@ -261,7 +289,7 @@ def admin_set_primary_product_image(
     return updated
 
 
-@router.post("/products/{product_id}/variants", response_model=ProductVariantRead, status_code=status.HTTP_201_CREATED)
+@router.post("/products/{product_id}/variants", response_model=ProductVariantRead, status_code=status_module.HTTP_201_CREATED)
 def admin_create_product_variant(
     product_id: int,
     payload: ProductVariantCreate,
@@ -275,7 +303,7 @@ def admin_create_product_variant(
         return variant
     except IntegrityError as exc:
         db.rollback()
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Product variant SKU already exists.") from exc
+        raise HTTPException(status_code=status_module.HTTP_409_CONFLICT, detail="Product variant SKU already exists.") from exc
 
 
 @router.patch("/products/{product_id}/variants/{variant_id}", response_model=ProductVariantRead)
@@ -293,7 +321,7 @@ def admin_update_product_variant(
         return updated
     except IntegrityError as exc:
         db.rollback()
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Product variant SKU already exists.") from exc
+        raise HTTPException(status_code=status_module.HTTP_409_CONFLICT, detail="Product variant SKU already exists.") from exc
 
 
 @router.delete("/products/{product_id}/variants/{variant_id}", response_model=ProductVariantRead)
@@ -317,6 +345,11 @@ def admin_export_orders_csv(
     db: Session = Depends(get_db),
     current_admin: User = Depends(get_current_admin),
 ):
+    if status and status not in ORDER_STATUSES:
+        raise HTTPException(status_code=status_module.HTTP_400_BAD_REQUEST, detail="Invalid order status filter.")
+    if date_from and date_to and date_from > date_to:
+        raise HTTPException(status_code=status_module.HTTP_400_BAD_REQUEST, detail="date_from must be before or equal to date_to.")
+
     query = db.query(Order).options(selectinload(Order.items))
     if status:
         query = query.filter(Order.status == status)
@@ -370,11 +403,13 @@ def admin_export_orders_csv(
         "status": status,
         "date_from": date_from.isoformat() if date_from else None,
         "date_to": date_to.isoformat() if date_to else None,
+        "rows_count": len(orders),
     })
+    filename = f"orders-export-{date.today().isoformat()}.csv"
     return Response(
-        content=output.getvalue(),
+        content="\ufeff" + output.getvalue(),
         media_type="text/csv; charset=utf-8",
-        headers={"Content-Disposition": 'attachment; filename="orders-export.csv"'},
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 
@@ -411,7 +446,7 @@ def admin_categories(db: Session = Depends(get_db), current_admin: User = Depend
     return get_categories(db, include_inactive=True)
 
 
-@router.post("/categories", response_model=CategoryRead, status_code=status.HTTP_201_CREATED)
+@router.post("/categories", response_model=CategoryRead, status_code=status_module.HTTP_201_CREATED)
 def admin_create_category(payload: CategoryCreate, db: Session = Depends(get_db), current_admin: User = Depends(get_current_admin)):
     category = create_category(db, payload)
     create_audit_log(db, current_admin.id, "create", "category", category.id)
@@ -428,7 +463,7 @@ def admin_update_category(category_id: int, payload: CategoryUpdate, db: Session
     return updated
 
 
-@router.delete("/categories/{category_id}", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete("/categories/{category_id}", status_code=status_module.HTTP_204_NO_CONTENT)
 def admin_delete_category(category_id: int, db: Session = Depends(get_db), current_admin: User = Depends(get_current_admin)):
     category = get_category_by_id(db, category_id)
     if not category:

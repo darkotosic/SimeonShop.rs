@@ -190,6 +190,7 @@ export function AdminOrdersPanel() {
   }, [success]);
 
   const visible = filter ? orders.filter((order) => order.status === filter) : orders;
+  const dateRangeError = dateFrom && dateTo && dateFrom > dateTo ? 'Datum od ne može biti posle datuma do.' : null;
 
   async function saveNote(order: Order) {
     setSavingId(order.id); setError(null); setSuccess(null);
@@ -215,15 +216,20 @@ export function AdminOrdersPanel() {
 
 
   async function exportCsv() {
+    if (dateRangeError) {
+      setError(dateRangeError);
+      setSuccess(null);
+      return;
+    }
     setExporting(true);
     setError(null);
     setSuccess(null);
     try {
-      const blob = await exportAdminOrdersCsv({ status: filter, date_from: dateFrom, date_to: dateTo });
-      const url = window.URL.createObjectURL(blob);
+      const result = await exportAdminOrdersCsv({ status: filter, date_from: dateFrom, date_to: dateTo });
+      const url = window.URL.createObjectURL(result.blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = 'orders-export.csv';
+      link.download = result.filename;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -256,12 +262,13 @@ export function AdminOrdersPanel() {
             Do
             <input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} className="mt-1 block border px-3 py-2 text-sm" />
           </label>
-          <button type="button" disabled={exporting} onClick={() => void exportCsv()} className="bg-primary px-4 py-2 text-sm font-semibold text-white disabled:bg-slate-400">
+          <button type="button" disabled={exporting || Boolean(dateRangeError)} onClick={() => void exportCsv()} className="bg-primary px-4 py-2 text-sm font-semibold text-white disabled:bg-slate-400">
             {exporting ? 'Export...' : 'Export CSV'}
           </button>
         </div>
       </div>
       {loading && <div className="border border-slate-200 bg-white p-6">Učitavanje porudžbina...</div>}
+      {dateRangeError && <div className="rounded-lg bg-amber-50 p-4 text-sm text-amber-800">{dateRangeError}</div>}
       {error && <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700">{error}</div>}
       {success && <div className="rounded-lg bg-green-50 p-4 text-sm text-green-700">{success}</div>}
       {!loading && visible.length === 0 && <div className="border border-slate-200 bg-white p-6">Nema porudžbina za izabrani filter.</div>}

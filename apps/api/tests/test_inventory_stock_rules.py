@@ -79,3 +79,14 @@ def test_product_effective_stock_quantity_uses_active_variants(db):
     db.refresh(product)
 
     assert ProductRead.model_validate(product).effective_stock_quantity == 5
+
+
+def test_guest_checkout_requires_variant_id_for_variant_product(client, db):
+    product = create_product(db, ProductCreate(name="Requires variant product", slug="requires-variant-product", price_cents=1000, stock_quantity=10))
+    db.add(ProductVariant(product_id=product.id, sku="RV-L", size="L", stock_quantity=5, is_active=True))
+    db.commit()
+
+    response = client.post("/api/v1/orders/guest-checkout", json=_payload(product.id).model_dump())
+
+    assert response.status_code == 400
+    assert "Select a product variant" in response.json()["detail"]

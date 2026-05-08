@@ -27,10 +27,10 @@ function CartLineRow({ line, imageFailed, onImageFailed, onRefresh }: { line: Ca
       </div>
       <div>
         <Link href={`/products/${line.slug}`} className="font-semibold text-primary">{line.name}</Link>
-        {line.variantLabel && <p className="text-sm text-slate-500">{line.variantLabel}</p>}
+        {line.variantLabel && <p className="mt-1 inline-flex rounded-full bg-slate-100 px-2 py-1 text-sm font-semibold text-slate-700">Varijanta: {line.variantLabel}</p>}
         <p className="mt-2 font-semibold"><Price cents={line.unitPriceCents} currency={line.currency} /></p>
-        {line.quantity === line.stockQuantity && <p className="mt-2 rounded-lg bg-blue-50 p-2 text-sm text-blue-700">Dostignut je maksimum dostupne zalihe za ovaj artikal.</p>}
-        {line.quantity > line.stockQuantity && <p className="mt-2 rounded-lg bg-red-50 p-2 text-sm text-red-700">Količina je veća od dostupne zalihe ({line.stockQuantity}).</p>}
+        {line.quantity === line.stockQuantity && <p className="mt-2 rounded-lg bg-blue-50 p-2 text-sm text-blue-700">Dostignut je maksimum dostupne zalihe za izabranu varijantu/artikal.</p>}
+        {line.quantity > line.stockQuantity && <p className="mt-2 rounded-lg bg-red-50 p-2 text-sm text-red-700">Količina je veća od dostupne zalihe za izabranu varijantu/artikal ({line.stockQuantity}).</p>}
       </div>
       <div className="flex items-center gap-3 sm:flex-col sm:items-end">
         <label className="text-xs font-medium text-slate-500">

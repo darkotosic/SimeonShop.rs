@@ -23,19 +23,29 @@ export default async function TermsPage() {
             {settings.company_tax_id && <p>PIB: {settings.company_tax_id}</p>}
           </>
         ) : (
-          <p>Podaci o prodavcu trenutno nisu javno podešeni.</p>
+          <p>Podaci o prodavcu trenutno nisu javno podešeni u podešavanjima prodavnice.</p>
         )}
       </section>
       <section className="mt-8 space-y-3">
-        <h2 className="text-2xl font-semibold text-slate-900">Poručivanje i plaćanje</h2>
-        <p>Porudžbina se kreira kroz checkout i čuva se sa artiklima, količinama i pravnim tragom prihvatanja ovih uslova.</p>
-        <p>Plaćanje je trenutno pouzećem, prilikom preuzimanja pošiljke.</p>
+        <h2 className="text-2xl font-semibold text-slate-900">Poručivanje</h2>
+        <p>Porudžbina se kreira kroz checkout unosom kontakt podataka, adrese za dostavu, izabranih artikala, količina i prihvatanjem ovih uslova.</p>
+        <p>Nakon slanja porudžbine sistem čuva podatke o artiklima i kupcu kako porudžbina ne bi bila izgubljena ako opciona email potvrda nije dostupna.</p>
       </section>
       <section className="mt-8 space-y-3">
-        <h2 className="text-2xl font-semibold text-slate-900">Dostava, zamene i reklamacije</h2>
-        <p>{settings.delivery_note ?? 'Detalji dostave biće potvrđeni nakon obrade porudžbine.'}</p>
-        <p>{settings.return_policy_short ?? 'Detalji povraćaja i reklamacija biće dostupni nakon potvrde sa podrškom.'}</p>
-        {contact ? <p>Za sve upite koristite {contact}.</p> : <p>Kontakt podaci podrške još nisu podešeni.</p>}
+        <h2 className="text-2xl font-semibold text-slate-900">Cene i plaćanje</h2>
+        <p>Cene proizvoda su prikazane na stranici proizvoda. Plaćanje je trenutno navedeno kao plaćanje pouzećem, prilikom preuzimanja pošiljke.</p>
+      </section>
+      <section className="mt-8 space-y-3">
+        <h2 className="text-2xl font-semibold text-slate-900">Dostava</h2>
+        <p>{settings.delivery_note ?? 'Detalji dostave trenutno nisu javno podešeni. Prodavac treba da potvrdi način, rok i trošak dostave pre slanja pošiljke.'}</p>
+      </section>
+      <section className="mt-8 space-y-3">
+        <h2 className="text-2xl font-semibold text-slate-900">Povraćaj, zamene i reklamacije</h2>
+        <p>{settings.return_policy_short ?? 'Pravila povraćaja, zamena i reklamacija trenutno nisu javno podešena. Kupac treba da kontaktira prodavca sa brojem porudžbine pre slanja proizvoda nazad.'}</p>
+      </section>
+      <section className="mt-8 space-y-3">
+        <h2 className="text-2xl font-semibold text-slate-900">Kontakt</h2>
+        {contact ? <p>Za pitanja o kupovini koristite {contact}.</p> : <p>Kontakt podaci podrške trenutno nisu javno podešeni.</p>}
       </section>
     </main>
   );

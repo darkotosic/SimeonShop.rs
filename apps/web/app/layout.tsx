@@ -1,53 +1,72 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { loadPublicStoreSettings } from '@/lib/store-settings';
+import type { PublicStoreSettings } from '@/lib/api';
 import '../styles/globals.css';
 
 const fallbackBrandName = process.env.NEXT_PUBLIC_BRAND_NAME ?? 'Simeon Shop';
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://simeonshop.rs').replace(/\/$/, '');
 const fallbackLogoUrl = process.env.NEXT_PUBLIC_LOGO_URL;
 
-export const metadata: Metadata = {
-  metadataBase: new URL(siteUrl),
-  title: { default: `${fallbackBrandName} | Online prodavnica garderobe`, template: `%s | ${fallbackBrandName}` },
-  description: 'Simeon Shop je online prodavnica kvalitetne garderobe sa brzom isporukom, sigurnom porudžbinom i modernim dizajnom.',
-  openGraph: {
-    type: 'website',
+function absoluteUrl(url?: string | null): string | undefined {
+  if (!url) return undefined;
+  return url.startsWith('http://') || url.startsWith('https://') ? url : `${siteUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+}
+
+function buildOrganizationJsonLd(settings: PublicStoreSettings, brandName: string) {
+  const sameAs = [settings.instagram_url, settings.facebook_url].filter((url): url is string => Boolean(url));
+  const contactPoint = settings.store_email || settings.store_phone
+    ? [{
+      '@type': 'ContactPoint',
+      contactType: 'customer support',
+      ...(settings.store_email ? { email: settings.store_email } : {}),
+      ...(settings.store_phone ? { telephone: settings.store_phone } : {}),
+      availableLanguage: ['sr'],
+    }]
+    : undefined;
+
+  return {
+    '@context': 'https://schema.org',
+    '@type': 'Organization',
+    name: brandName,
     url: siteUrl,
-    siteName: fallbackBrandName,
-    title: `${fallbackBrandName} | Online prodavnica garderobe`,
-    description: 'Kvalitetna garderoba, brza isporuka i jednostavna porudžbina.',
-    images: fallbackLogoUrl ? [{ url: fallbackLogoUrl, alt: fallbackBrandName }] : undefined,
-  },
-  twitter: { card: 'summary_large_image' },
-};
+    ...(absoluteUrl(settings.logo_url) ? { logo: absoluteUrl(settings.logo_url) } : {}),
+    ...(settings.company_address ? { address: settings.company_address } : {}),
+    ...(sameAs.length ? { sameAs } : {}),
+    ...(contactPoint ? { contactPoint } : {}),
+  };
+}
+
+function buildWebsiteJsonLd(brandName: string) {
+  return { '@context': 'https://schema.org', '@type': 'WebSite', name: brandName, url: siteUrl };
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  const settings = await loadPublicStoreSettings();
+  const brandName = settings.company_name ?? fallbackBrandName;
+  const logoUrl = absoluteUrl(settings.logo_url) ?? absoluteUrl(fallbackLogoUrl);
+
+  return {
+    metadataBase: new URL(siteUrl),
+    title: { default: `${brandName} | Online prodavnica garderobe`, template: `%s | ${brandName}` },
+    description: 'Simeon Shop je online prodavnica kvalitetne garderobe sa brzom isporukom, sigurnom porudžbinom i modernim dizajnom.',
+    openGraph: {
+      type: 'website',
+      url: siteUrl,
+      siteName: brandName,
+      title: `${brandName} | Online prodavnica garderobe`,
+      description: 'Kvalitetna garderoba, brza isporuka i jednostavna porudžbina.',
+      images: logoUrl ? [{ url: logoUrl, alt: `${brandName} logo` }] : undefined,
+    },
+    twitter: { card: 'summary_large_image' },
+  };
+}
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const settings = await loadPublicStoreSettings();
   const brandName = settings.company_name ?? fallbackBrandName;
   const contactEmail = settings.store_email;
-  const sameAs = [settings.instagram_url, settings.facebook_url].filter(Boolean);
-  const jsonLd = [
-    {
-      '@context': 'https://schema.org',
-      '@type': 'Organization',
-      name: brandName,
-      url: siteUrl,
-      logo: settings.logo_url,
-      address: settings.company_address,
-      sameAs,
-      contactPoint: [
-        {
-          '@type': 'ContactPoint',
-          contactType: 'customer support',
-          email: contactEmail,
-          telephone: settings.store_phone,
-          availableLanguage: ['sr'],
-        },
-      ],
-    },
-    { '@context': 'https://schema.org', '@type': 'WebSite', name: brandName, url: siteUrl },
-  ];
+  const jsonLd = [buildOrganizationJsonLd(settings, brandName), buildWebsiteJsonLd(brandName)];
 
   return (
     <html lang="sr">

@@ -1,6 +1,6 @@
 # SimeonShop.rs
 
-Enterprise-grade e-commerce MVP for selling clothing through Instagram/Facebook channels with a decoupled storefront, protected admin dashboard, FastAPI backend and PostgreSQL database.
+Pre-production e-commerce foundation for selling clothing through Instagram/Facebook channels with a decoupled storefront, protected admin dashboard, FastAPI backend, PostgreSQL database, order lifecycle controls, checkout validation, and Cloudinary-ready product media.
 
 ## Stack
 
@@ -8,6 +8,10 @@ Enterprise-grade e-commerce MVP for selling clothing through Instagram/Facebook 
 - **Backend:** FastAPI, SQLAlchemy, Pydantic, JWT authentication, SlowAPI rate limiting
 - **Database:** Render PostgreSQL in production, Alembic migrations, isolated test database setup
 - **Deployment:** Netlify frontend, Render backend, Render PostgreSQL
+
+## Project status
+
+This repository is in **pre-production e-commerce foundation** status: the core storefront, admin dashboard, backend API, migrations, protected admin proxy, guest checkout, order lifecycle, and product media foundations are in place, with final launch verification tracked in the production docs.
 
 ## Core API endpoints
 
@@ -17,7 +21,8 @@ Enterprise-grade e-commerce MVP for selling clothing through Instagram/Facebook 
 - `GET /api/v1/products`
 - `GET /api/v1/products/{slug}`
 - `GET /api/v1/categories`
-- `POST /api/v1/orders/guest-checkout`
+- `POST /api/v1/orders/guest-checkout` (canonical public storefront checkout)
+- `POST /api/v1/orders/checkout` (legacy/internal authenticated-user checkout only)
 
 ## Admin API endpoints
 
@@ -69,7 +74,7 @@ npm run dev
 
 ## Required environment variables
 
-See `apps/api/.env.example` and `apps/web/.env.example`. Do not hardcode API URLs, JWT secrets, SMTP credentials, admin bootstrap tokens or database URLs.
+See `apps/api/.env.example`, `apps/web/.env.example`, [DEPLOYMENT.md](DEPLOYMENT.md), [docs/LAUNCH_CHECKLIST.md](docs/LAUNCH_CHECKLIST.md), and [docs/PRODUCTION_RUNBOOK.md](docs/PRODUCTION_RUNBOOK.md). Do not hardcode API URLs, JWT secrets, SMTP credentials, Cloudinary credentials, admin bootstrap tokens or database URLs.
 
 ## Quality gates
 

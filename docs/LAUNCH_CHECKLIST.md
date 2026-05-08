@@ -2,6 +2,7 @@
 
 ## Backend
 
+- [ ] `python -m compileall app` passes in `apps/api`.
 - [ ] `pytest` passes in `apps/api`.
 - [ ] `alembic upgrade head` passes against production database.
 - [ ] `/api/v1/health` returns `status=ok` and `database=ok`.
@@ -25,6 +26,49 @@
 - [ ] Checkout requires accepted terms and creates order.
 - [ ] Admin login works.
 - [ ] Admin CRUD for products, categories, images, variants, settings, and orders works.
+- [ ] Admin image upload works through the protected proxy without breaking multipart bodies.
+
+## Order lifecycle
+
+- [ ] `new -> confirmed` radi.
+- [ ] `confirmed -> packed` radi.
+- [ ] `packed -> shipped` radi.
+- [ ] `shipped -> delivered` radi.
+- [ ] `new/confirmed/packed/shipped -> cancelled` radi.
+- [ ] `delivered -> cancelled` je blokirano.
+- [ ] `cancelled -> shipped` je blokirano.
+- [ ] `status -> isti status` je blokirano.
+- [ ] invalid status transition ne pravi `OrderStatusEvent`.
+- [ ] invalid status transition ne pravi audit log.
+
+## Checkout validation
+
+- [ ] checkout bez `accepted_terms` je blokiran.
+- [ ] guest checkout zahteva `accepted_terms`.
+- [ ] legacy checkout zahteva `accepted_terms`.
+- [ ] telefon sa `+381` formatom prolazi.
+- [ ] telefon sa slovima je blokiran.
+- [ ] poštanski broj mora imati 5 cifara.
+- [ ] prazan cart ne može na checkout.
+- [ ] frontend prikazuje validation greške.
+
+## Legacy checkout note
+
+`POST /api/v1/orders/checkout` je legacy/internal logged-in checkout. Public storefront koristi `/api/v1/orders/guest-checkout`. Legacy checkout nije planiran kao primarni tok za prvu produkciju dok ne dobije idempotency i full order item snapshot.
+
+## Cloudinary upload
+
+- [ ] `MEDIA_PROVIDER=cloudinary`.
+- [ ] `CLOUDINARY_CLOUD_NAME` podešen.
+- [ ] `CLOUDINARY_API_KEY` podešen.
+- [ ] `CLOUDINARY_API_SECRET` podešen.
+- [ ] upload JPEG radi.
+- [ ] upload PNG radi.
+- [ ] upload WebP radi.
+- [ ] upload preko 5MB je blokiran.
+- [ ] pogrešan MIME type je blokiran.
+- [ ] pogrešna ekstenzija je blokirana.
+- [ ] audit log beleži `product_id`, `image_url`, `content_type`, `size_bytes`.
 
 ## Business
 

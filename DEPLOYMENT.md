@@ -54,7 +54,7 @@ NEXT_PUBLIC_CONTACT_EMAIL=
 NEXT_PUBLIC_LOGO_URL=
 ```
 
-Use the actual Render service URL for `API_BASE_URL` and `NEXT_PUBLIC_API_BASE_URL`.
+Use the actual Render service URL for both `API_BASE_URL` and `NEXT_PUBLIC_API_BASE_URL`; Netlify must have both variables so server-side rendering/proxy calls and browser API calls target the same backend contract.
 
 ### Deploy
 
@@ -122,12 +122,15 @@ SMTP_USERNAME=
 SMTP_PASSWORD=
 SMTP_FROM_EMAIL=
 SMTP_FROM_NAME=Simeon Shop
-MEDIA_PROVIDER=external_url
+MEDIA_PROVIDER=cloudinary
+CLOUDINARY_CLOUD_NAME=
+CLOUDINARY_API_KEY=
+CLOUDINARY_API_SECRET=
 SENTRY_DSN=
 SENTRY_ENVIRONMENT=production
 ```
 
-Use `JWT_SECRET` for token signing. Remove or rotate `BOOTSTRAP_ADMIN_TOKEN` immediately after creating the first admin account.
+Use `JWT_SECRET` for token signing. `MEDIA_PROVIDER=cloudinary` requires `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET` before admin uploads are production-ready. Remove or rotate `BOOTSTRAP_ADMIN_TOKEN` immediately after creating the first admin account, then restart the Render service and verify bootstrap admin creation no longer works.
 
 ## Local Docker Compose
 

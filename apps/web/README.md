@@ -1,12 +1,12 @@
 # Frontend - SimeonShop.rs Web Application
 
-Next.js-based e-commerce frontend for SimeonShop.rs.
+Next.js App Router storefront and protected admin dashboard for SimeonShop.rs. Current status: pre-production e-commerce foundation wired to backend API contracts, canonical guest checkout, protected admin proxy, SEO metadata, sitemap, robots, and Cloudinary image allow-listing.
 
 ## 🚀 Quick Start
 
 ```bash
 # Install dependencies
-npm install
+npm ci
 
 # Create environment file
 cp .env.example .env.local
@@ -21,18 +21,21 @@ Visit `http://localhost:3000`
 
 ```
 web/
-├── pages/
-│   ├── index.tsx              # Homepage
-│   ├── products.tsx           # Products listing
-│   ├── cart.tsx               # Shopping cart
-│   ├── checkout.tsx           # Checkout
-│   ├── about.tsx              # About page
-│   ├── contact.tsx            # Contact page
-│   ├── privacy-policy.tsx     # Privacy policy
-│   ├── terms-and-conditions.tsx # Terms
+├── app/
+│   ├── page.tsx               # Homepage
+│   ├── products/              # Products listing and detail routes
+│   ├── cart/                  # Shopping cart
+│   ├── checkout/              # Checkout and success routes
+│   ├── about/                 # About page
+│   ├── contact/               # Contact page
+│   ├── shipping/              # Shipping page
+│   ├── returns/               # Returns page
+│   ├── size-guide/            # Size guide page
+│   ├── privacy-policy/        # Privacy policy
+│   ├── terms-and-conditions/  # Terms
 │   └── admin/
-│       ├── login.tsx          # Admin login
-│       └── dashboard.tsx      # Admin dashboard
+│       ├── login/             # Admin login
+│       └── dashboard/         # Admin dashboard
 ├── components/                # Reusable React components
 ├── styles/                    # Global CSS styles
 ├── public/                    # Static assets
@@ -78,28 +81,32 @@ NEXT_PUBLIC_LOGO_URL=
 
 | Route | Component | Description |
 |-------|-----------|-------------|
-| `/` | `pages/index.tsx` | Homepage with overview |
-| `/products` | `pages/products.tsx` | Product listing |
-| `/cart` | `pages/cart.tsx` | Shopping cart |
-| `/checkout` | `pages/checkout.tsx` | Checkout process |
-| `/about` | `pages/about.tsx` | About company |
-| `/contact` | `pages/contact.tsx` | Contact form |
-| `/privacy-policy` | `pages/privacy-policy.tsx` | Privacy policy |
-| `/terms-and-conditions` | `pages/terms-and-conditions.tsx` | Terms & conditions |
-| `/admin/login` | `pages/admin/login.tsx` | Admin login |
-| `/admin/dashboard` | `pages/admin/dashboard.tsx` | Admin dashboard |
+| `/` | `app/page.tsx` | Homepage with overview |
+| `/products` | `app/products/page.tsx` | Product listing from API |
+| `/products/[slug]` | `app/products/[slug]/page.tsx` | Product detail from API |
+| `/cart` | `app/cart/page.tsx` | Shopping cart |
+| `/checkout` | `app/checkout/page.tsx` | Guest checkout process |
+| `/checkout/success` | `app/checkout/success/page.tsx` | Checkout success page |
+| `/about` | `app/about/page.tsx` | About company |
+| `/contact` | `app/contact/page.tsx` | Contact form |
+| `/privacy-policy` | `app/privacy-policy/page.tsx` | Privacy policy |
+| `/terms-and-conditions` | `app/terms-and-conditions/page.tsx` | Terms & conditions |
+| `/admin/login` | `app/admin/login/page.tsx` | Admin login |
+| `/admin/dashboard` | `app/admin/dashboard/page.tsx` | Protected admin dashboard |
 
 ## 🔗 API Integration
 
-Frontend communicates with backend at `http://localhost:8000`:
+Frontend communicates with the backend through `NEXT_PUBLIC_API_BASE_URL` for public API calls and `API_BASE_URL` for server-side/admin proxy calls. Public checkout uses `/api/v1/orders/guest-checkout`; there must be no public storefront call to legacy `/api/v1/orders/checkout`.
 
 ```typescript
 const apiUrl = process.env.NEXT_PUBLIC_API_BASE_URL;
 
-// Example API call
+// Example public API call
 fetch(`${apiUrl}/api/v1/products`)
   .then(r => r.json())
   .then(data => console.log(data));
+
+// Admin calls go through /api/admin/proxy and the proxy preserves upload bodies with request.arrayBuffer().
 ```
 
 ## 🧪 Testing (Planned)
@@ -116,7 +123,6 @@ npm run test:coverage # Generate coverage report
 - **react**: UI library
 - **typescript**: Type safety
 - **tailwindcss**: Styling
-- **axios**: HTTP client
 - **autoprefixer**: CSS processing
 - **postcss**: CSS transformations
 
@@ -126,6 +132,9 @@ npm run test:coverage # Generate coverage report
 Configuration in `netlify.toml` at project root.
 
 ```bash
+npm ci
+npm run lint
+npm run type-check
 npm run build
 ```
 
@@ -148,6 +157,8 @@ vercel deploy
 - Environment variables for API URLs
 - TypeScript strict mode
 - Input validation on forms
+- Protected admin routes and admin proxy
+- `next.config.js` image allow-list limited to `res.cloudinary.com` for Cloudinary product media
 
 ## 🐛 Troubleshooting
 
@@ -164,5 +175,5 @@ npm run dev -- -p 3001
 
 ---
 
-**Status**: Active Development
+**Status**: Pre-production e-commerce foundation
 **Last Updated**: May 2026

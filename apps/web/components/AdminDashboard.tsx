@@ -72,6 +72,7 @@ export function AdminDashboard() {
                 {[
                   ['Nove porudžbine', summary.new_orders],
                   ['Potvrđene', summary.confirmed_orders],
+                  ['Spakovane', summary.packed_orders],
                   ['Poslate', summary.shipped_orders],
                   ['Isporučene', summary.delivered_orders],
                   ['Otkazane', summary.cancelled_orders],
@@ -91,6 +92,48 @@ export function AdminDashboard() {
                 <div className="border border-slate-200 bg-white p-5 sm:col-span-2">
                   <p className="text-sm text-slate-500">Prosečna porudžbina</p>
                   <p className="mt-2 text-3xl font-bold text-primary"><Price cents={summary.average_order_value_cents} currency="RSD" /></p>
+                </div>
+              </div>
+
+              <div className="grid gap-4 xl:grid-cols-3">
+                <div className="border border-slate-200 bg-white p-5">
+                  <h3 className="font-bold text-primary">Prihod po danima</h3>
+                  {summary.revenue_by_day.length === 0 ? (
+                    <p className="mt-3 text-sm text-slate-500">Nema isporučenih porudžbina u periodu.</p>
+                  ) : (
+                    <table className="mt-3 w-full text-left text-sm">
+                      <thead><tr className="border-b bg-slate-50"><th className="p-2">Datum</th><th>Prihod</th></tr></thead>
+                      <tbody>{summary.revenue_by_day.map((row) => (
+                        <tr key={row.date} className="border-b"><td className="p-2">{row.date}</td><td><Price cents={row.revenue_cents} currency="RSD" /></td></tr>
+                      ))}</tbody>
+                    </table>
+                  )}
+                </div>
+                <div className="border border-slate-200 bg-white p-5">
+                  <h3 className="font-bold text-primary">Top proizvodi</h3>
+                  {summary.top_products.length === 0 ? (
+                    <p className="mt-3 text-sm text-slate-500">Nema prodatih proizvoda u isporučenim porudžbinama.</p>
+                  ) : (
+                    <table className="mt-3 w-full text-left text-sm">
+                      <thead><tr className="border-b bg-slate-50"><th className="p-2">Proizvod</th><th>Kom.</th><th>Prihod</th></tr></thead>
+                      <tbody>{summary.top_products.map((product) => (
+                        <tr key={product.product_name} className="border-b"><td className="p-2">{product.product_name}</td><td>{product.quantity_sold}</td><td><Price cents={product.revenue_cents} currency="RSD" /></td></tr>
+                      ))}</tbody>
+                    </table>
+                  )}
+                </div>
+                <div className="border border-slate-200 bg-white p-5">
+                  <h3 className="font-bold text-primary">Porudžbine po danima</h3>
+                  {summary.orders_by_day.length === 0 ? (
+                    <p className="mt-3 text-sm text-slate-500">Nema porudžbina u periodu.</p>
+                  ) : (
+                    <table className="mt-3 w-full text-left text-sm">
+                      <thead><tr className="border-b bg-slate-50"><th className="p-2">Datum</th><th>Broj</th></tr></thead>
+                      <tbody>{summary.orders_by_day.map((row) => (
+                        <tr key={row.date} className="border-b"><td className="p-2">{row.date}</td><td>{row.orders_count}</td></tr>
+                      ))}</tbody>
+                    </table>
+                  )}
                 </div>
               </div>
               <div className="border border-slate-200 bg-white p-5">

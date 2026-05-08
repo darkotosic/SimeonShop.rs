@@ -30,7 +30,8 @@ export function ProductCard({ product }: { product: Product }) {
             Slika za {product.name} uskoro
           </div>
         )}
-        {stock <= 0 && <span className="absolute left-3 top-3 rounded-full bg-red-700 px-3 py-1 text-xs font-semibold text-white shadow-sm">Nema na stanju</span>}
+        {hasVariants && <span className="absolute left-3 top-3 rounded-full bg-blue-700 px-3 py-1 text-xs font-semibold text-white shadow-sm">Dostupno po varijantama</span>}
+        {!hasVariants && stock <= 0 && <span className="absolute left-3 top-3 rounded-full bg-red-700 px-3 py-1 text-xs font-semibold text-white shadow-sm">Nema na stanju</span>}
         {hasDiscount && <span className="absolute right-3 top-3 rounded-full bg-gold px-3 py-1 text-xs font-semibold text-primary">Sniženo</span>}
       </Link>
       <div className="flex flex-1 flex-col p-5">

@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from app.core.security import create_access_token
 from app.crud.product import create_product
 from app.crud.user import create_user
-from app.models.order import Order
+from app.models.order import Order, OrderItem
 from app.models.product_variant import ProductVariant
 from app.schemas.product import ProductCreate
 from app.schemas.user import UserCreate
@@ -14,7 +14,7 @@ def _headers(db, *, is_admin=True, email="summary-admin@example.com"):
     return {"Authorization": f"Bearer {create_access_token(user.id)}"}
 
 
-def _order(db, number, status, total_cents, created_at):
+def _order(db, number, status, total_cents, created_at, product_name="Majica", quantity=1):
     order = Order(
         order_number=number,
         status=status,
@@ -27,6 +27,8 @@ def _order(db, number, status, total_cents, created_at):
         created_at=created_at,
     )
     db.add(order)
+    db.flush()
+    db.add(OrderItem(order_id=order.id, product_name=product_name, unit_price_cents=total_cents // quantity, quantity=quantity, total_price_cents=total_cents))
     db.commit()
     return order
 
@@ -38,9 +40,10 @@ def test_non_admin_cannot_read_summary(client, db):
 
 def test_summary_period_revenue_and_low_stock_metrics(client, db):
     now = datetime.utcnow()
-    _order(db, "SIM-DELIVERED", "delivered", 10000, now - timedelta(days=1))
-    _order(db, "SIM-CANCELLED", "cancelled", 90000, now - timedelta(days=1))
-    _order(db, "SIM-OLD", "delivered", 50000, now - timedelta(days=40))
+    _order(db, "SIM-DELIVERED", "delivered", 10000, now - timedelta(days=1), product_name="Majica", quantity=2)
+    _order(db, "SIM-CANCELLED", "cancelled", 90000, now - timedelta(days=1), product_name="Jakna", quantity=3)
+    _order(db, "SIM-PACKED", "packed", 12000, now - timedelta(days=1))
+    _order(db, "SIM-OLD", "delivered", 50000, now - timedelta(days=40), product_name="Staro", quantity=5)
     create_product(db, ProductCreate(name="Low stock", slug="low-stock", price_cents=1000, stock_quantity=3))
     high = create_product(db, ProductCreate(name="High stock", slug="high-stock", price_cents=1000, stock_quantity=20))
     variant_product = create_product(db, ProductCreate(name="Variant low", slug="variant-low", price_cents=1000, stock_quantity=50))
@@ -51,11 +54,16 @@ def test_summary_period_revenue_and_low_stock_metrics(client, db):
 
     assert response.status_code == 200, response.text
     data = response.json()
-    assert data["orders_count_period"] == 2
+    assert data["orders_count_period"] == 3
     assert data["delivered_orders"] == 1
     assert data["cancelled_orders"] == 1
+    assert data["packed_orders"] == 1
     assert data["total_revenue_cents"] == 10000
     assert data["average_order_value_cents"] == 10000
+    assert data["revenue_by_day"] == [{"date": (now - timedelta(days=1)).date().isoformat(), "revenue_cents": 10000}]
+    assert {row["date"]: row["orders_count"] for row in data["orders_by_day"]}[(now - timedelta(days=1)).date().isoformat()] == 3
+    assert data["top_products"][0] == {"product_name": "Majica", "quantity_sold": 2, "revenue_cents": 10000}
+    assert all(product["product_name"] != "Jakna" for product in data["top_products"])
     low_names = {product["name"] for product in data["low_stock_products"]}
     assert "Low stock" in low_names
     assert "Variant low" in low_names

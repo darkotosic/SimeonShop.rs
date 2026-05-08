@@ -24,7 +24,7 @@ def _send_order_emails(order):
 
 
 # Legacy/internal logged-in checkout. This endpoint is kept only for future authenticated-user carts.
-# Public production storefront must use /guest-checkout.
+# Public storefront must use /api/v1/orders/guest-checkout.
 # Do not expose this endpoint in the frontend before idempotency and full order item snapshots are implemented.
 @router.post("/checkout", response_model=OrderRead, status_code=status.HTTP_201_CREATED)
 def checkout(

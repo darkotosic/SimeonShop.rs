@@ -103,7 +103,7 @@ export function AdminProductsPanel() {
       </div>
 
       <div className="grid gap-3 rounded-2xl border border-slate-200 bg-white p-4 md:grid-cols-[1fr_auto]">
-        <p className="text-xs text-slate-500 md:col-span-2">Privremeno se učitava do 100 proizvoda po zahtevu; pretraga i filter su client-side.</p>
+        <p className="text-xs text-slate-500 md:col-span-2">Privremeno se učitava do 100 proizvoda po zahtevu; pretraga i filter su client-side. Ako proizvod ima aktivne varijante, effective stock se računa iz varijanti.</p>
         <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Pretraga po nazivu, slug-u ili SKU" className="border border-slate-300 px-3 py-2" />
         <select value={activeFilter} onChange={(event) => setActiveFilter(event.target.value as 'all' | 'active' | 'inactive')} className="border border-slate-300 px-3 py-2">
           <option value="all">Svi proizvodi</option>

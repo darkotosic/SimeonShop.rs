@@ -232,3 +232,21 @@ async def new_endpoint():
 
 **Status**: Active Development
 **Last Updated**: January 2024
+
+
+## CI checks
+
+Backend CI mora proći:
+
+- `python -m compileall app`
+- `pytest`
+- `alembic upgrade head` against a clean SQLite migration database in CI
+
+
+## Inventory rules
+
+- Product without variants uses `Product.stock_quantity`.
+- Product with active variants requires `variant_id` during checkout.
+- Variant checkout decrements `ProductVariant.stock_quantity`.
+- `Product.stock_quantity` is not decremented when `variant_id` is used.
+- `ProductRead.effective_stock_quantity` sums active variant stock when variants exist.

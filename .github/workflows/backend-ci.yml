@@ -39,3 +39,10 @@ jobs:
       - name: Test
         working-directory: apps/api
         run: pytest
+      - name: Alembic upgrade
+        working-directory: apps/api
+        env:
+          DATABASE_URL: sqlite:///./migration_ci.db
+        run: |
+          rm -f migration_ci.db
+          alembic upgrade head

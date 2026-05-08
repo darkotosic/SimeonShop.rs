@@ -1,7 +1,7 @@
 import csv
 import io
 import json
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 
 from app.core.security import create_access_token
 from app.crud.user import create_user
@@ -51,8 +51,9 @@ def test_admin_can_export_orders_csv_with_order_number(client, db):
 
     assert response.status_code == 200, response.text
     assert response.headers["content-type"].startswith("text/csv; charset=utf-8")
-    assert response.headers["content-disposition"] == 'attachment; filename="orders-export.csv"'
-    rows = list(csv.DictReader(io.StringIO(response.text)))
+    assert response.text.startswith("\ufeff")
+    assert response.headers["content-disposition"] == f'attachment; filename="orders-export-{date.today().isoformat()}.csv"'
+    rows = list(csv.DictReader(io.StringIO(response.text.lstrip("\ufeff"))))
     assert rows[0]["order_number"] == "SIM-EXPORT-1"
     assert rows[0]["items_summary"] == "Majica / L / Crna x 1"
 
@@ -64,7 +65,7 @@ def test_export_status_filter_works(client, db):
     response = client.get("/api/v1/admin/orders/export.csv?status=delivered", headers=_headers(db))
 
     assert response.status_code == 200, response.text
-    rows = list(csv.DictReader(io.StringIO(response.text)))
+    rows = list(csv.DictReader(io.StringIO(response.text.lstrip("\ufeff"))))
     assert [row["order_number"] for row in rows] == ["SIM-DELIVERED"]
 
 
@@ -76,8 +77,22 @@ def test_export_date_filters_and_audit_log(client, db):
     response = client.get("/api/v1/admin/orders/export.csv?date_from=2099-01-01&date_to=2099-01-02", headers=headers)
 
     assert response.status_code == 200, response.text
-    rows = list(csv.DictReader(io.StringIO(response.text)))
+    rows = list(csv.DictReader(io.StringIO(response.text.lstrip("\ufeff"))))
     assert rows == []
     log = db.query(AuditLog).filter(AuditLog.action == "export", AuditLog.entity_type == "order").one()
     metadata = json.loads(log.metadata_json)
-    assert metadata == {"status": None, "date_from": "2099-01-01", "date_to": "2099-01-02"}
+    assert metadata == {"status": None, "date_from": "2099-01-01", "date_to": "2099-01-02", "rows_count": 0}
+
+
+def test_export_invalid_status_returns_400(client, db):
+    response = client.get("/api/v1/admin/orders/export.csv?status=invalid", headers=_headers(db))
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid order status filter."
+
+
+def test_export_invalid_date_range_returns_400(client, db):
+    response = client.get("/api/v1/admin/orders/export.csv?date_from=2026-05-09&date_to=2026-05-08", headers=_headers(db))
+
+    assert response.status_code == 400
+    assert response.json()["detail"] == "date_from must be before or equal to date_to."

@@ -177,3 +177,10 @@ npm run dev -- -p 3001
 
 **Status**: Pre-production e-commerce foundation
 **Last Updated**: May 2026
+
+
+## Inventory display rules
+
+- Products with active variants display availability by variant and require customers to select a size/color before adding to cart.
+- Cart lines preserve the selected variant label so stock warnings refer to the chosen variant/artikal.
+- Simple products without variants use product-level stock.

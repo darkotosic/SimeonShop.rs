@@ -52,6 +52,10 @@
 - [ ] prazan cart ne može na checkout.
 - [ ] frontend prikazuje validation greške.
 
+- [ ] public frontend ne poziva `/api/v1/orders/checkout`.
+- [ ] `/api/v1/orders/checkout` zahteva auth.
+- [ ] `/api/v1/orders/checkout` je označen kao legacy/internal.
+
 ## Legacy checkout note
 
 `POST /api/v1/orders/checkout` je legacy/internal logged-in checkout. Public storefront koristi `/api/v1/orders/guest-checkout`. Legacy checkout nije planiran kao primarni tok za prvu produkciju dok ne dobije idempotency i full order item snapshot.

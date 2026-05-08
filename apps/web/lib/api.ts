@@ -68,7 +68,11 @@ export type PublicStoreSettings = {
 };
 
 export type LowStockProduct = { id: number; name: string; slug: string; sku?: string | null; stock_quantity: number; variant_stock_quantity: number; effective_stock_quantity: number };
-export type AdminSummary = { new_orders: number; confirmed_orders: number; shipped_orders: number; delivered_orders: number; cancelled_orders: number; active_products: number; out_of_stock_products: number; total_revenue_cents: number; orders_count_period: number; average_order_value_cents: number; latest_orders: Order[]; low_stock_products: LowStockProduct[] };
+export type DailyRevenue = { date: string; revenue_cents: number };
+export type DailyOrders = { date: string; orders_count: number };
+export type TopProduct = { product_name: string; quantity_sold: number; revenue_cents: number };
+export type AdminSummary = { new_orders: number; confirmed_orders: number; packed_orders: number; shipped_orders: number; delivered_orders: number; cancelled_orders: number; active_products: number; out_of_stock_products: number; total_revenue_cents: number; orders_count_period: number; average_order_value_cents: number; latest_orders: Order[]; low_stock_products: LowStockProduct[]; revenue_by_day: DailyRevenue[]; orders_by_day: DailyOrders[]; top_products: TopProduct[] };
+export type CsvExportResult = { blob: Blob; filename: string };
 
 const paramsToQuery = (params: Record<string, string | number | undefined>) => {
   const search = new URLSearchParams();
@@ -117,7 +121,15 @@ export const adminLogin = (email: string, password: string) => fetch('/api/admin
 export const adminLogout = () => fetch('/api/admin/logout', { method: 'POST' });
 export const getAdminSummary = (periodDays = 30) => adminFetch<AdminSummary>(`/summary${paramsToQuery({ period_days: periodDays })}`);
 export const getAdminOrders = () => adminFetch<Order[]>('/orders');
-export async function exportAdminOrdersCsv(params: Record<string, string | number | undefined> = {}) {
+function filenameFromContentDisposition(header: string | null) {
+  if (!header) return 'orders-export.csv';
+  const utf8Match = header.match(/filename\*=UTF-8''([^;]+)/i);
+  if (utf8Match?.[1]) return decodeURIComponent(utf8Match[1].replace(/["\\]/g, ''));
+  const match = header.match(/filename="?([^";]+)"?/i);
+  return match?.[1] ?? 'orders-export.csv';
+}
+
+export async function exportAdminOrdersCsv(params: Record<string, string | number | undefined> = {}): Promise<CsvExportResult> {
   const response = await fetch(`/api/admin/proxy/api/v1/admin/orders/export.csv${paramsToQuery(params)}`, { cache: 'no-store' });
   if (!response.ok) {
     let details: unknown;
@@ -131,7 +143,10 @@ export async function exportAdminOrdersCsv(params: Record<string, string | numbe
     }
     throw new ApiError(`Admin CSV export failed with status ${response.status}`, response.status, details);
   }
-  return response.blob();
+  return {
+    blob: await response.blob(),
+    filename: filenameFromContentDisposition(response.headers.get('content-disposition')),
+  };
 }
 
 export const updateAdminOrderStatus = (orderId: number, status: string) => adminFetch<Order>(`/orders/${orderId}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });

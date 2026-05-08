@@ -50,7 +50,7 @@ def generate_order_number() -> str:
 def create_order_from_cart(db: Session, user_id: int, payload: CheckoutCreate) -> Order:
     cart = (
         db.query(Cart)
-        .options(selectinload(Cart.items).selectinload(CartItem.product))
+        .options(selectinload(Cart.items).selectinload(CartItem.product).selectinload(Product.variants))
         .filter(Cart.user_id == user_id, Cart.status == "active")
         .first()
     )
@@ -63,6 +63,9 @@ def create_order_from_cart(db: Session, user_id: int, payload: CheckoutCreate) -
     for item in cart.items:
         if not item.product or not item.product.is_active:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Cart contains unavailable product.")
+
+        if any(variant.is_active for variant in item.product.variants):
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Select a product variant for {item.product.name}.")
 
         if item.product.stock_quantity < item.quantity:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Insufficient stock for {item.product.name}.")
@@ -181,7 +184,7 @@ def create_guest_order(db: Session, payload: GuestCheckoutCreate, customer_ip: s
 
     try:
         for item in payload.items:
-            product_query = db.query(Product).options(selectinload(Product.images)).filter(Product.id == item.product_id, Product.is_active.is_(True))
+            product_query = db.query(Product).options(selectinload(Product.images), selectinload(Product.variants)).filter(Product.id == item.product_id, Product.is_active.is_(True))
             if db.bind and db.bind.dialect.name != "sqlite":
                 product_query = product_query.with_for_update()
             product = product_query.first()
@@ -190,6 +193,10 @@ def create_guest_order(db: Session, payload: GuestCheckoutCreate, customer_ip: s
 
             variant = None
             unit_price = product.price_cents
+            active_variants = [variant for variant in product.variants if variant.is_active]
+            if active_variants and item.variant_id is None:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Select a product variant for {product.name}.")
+
             if item.variant_id is not None:
                 variant_query = db.query(ProductVariant).filter(
                     ProductVariant.id == item.variant_id,

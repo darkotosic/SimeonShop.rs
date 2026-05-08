@@ -67,7 +67,8 @@ export type PublicStoreSettings = {
   logo_url?: string | null;
 };
 
-export type AdminSummary = { new_orders: number; active_products: number; out_of_stock_products: number; latest_orders: Order[] };
+export type LowStockProduct = { id: number; name: string; slug: string; sku?: string | null; stock_quantity: number; variant_stock_quantity: number; effective_stock_quantity: number };
+export type AdminSummary = { new_orders: number; confirmed_orders: number; shipped_orders: number; delivered_orders: number; cancelled_orders: number; active_products: number; out_of_stock_products: number; total_revenue_cents: number; orders_count_period: number; average_order_value_cents: number; latest_orders: Order[]; low_stock_products: LowStockProduct[] };
 
 const paramsToQuery = (params: Record<string, string | number | undefined>) => {
   const search = new URLSearchParams();
@@ -114,8 +115,25 @@ export async function adminFetch<T>(path: string, init: AdminFetchOptions = {}):
 }
 export const adminLogin = (email: string, password: string) => fetch('/api/admin/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) }).then(async (response) => { if (!response.ok) { let details: unknown; try { details = await response.json(); } catch { details = await response.text(); } throw new ApiError('Admin login failed', response.status, details); } return response.json() as Promise<{ ok: boolean; token_type: string }>; });
 export const adminLogout = () => fetch('/api/admin/logout', { method: 'POST' });
-export const getAdminSummary = () => adminFetch<AdminSummary>('/summary');
+export const getAdminSummary = (periodDays = 30) => adminFetch<AdminSummary>(`/summary${paramsToQuery({ period_days: periodDays })}`);
 export const getAdminOrders = () => adminFetch<Order[]>('/orders');
+export async function exportAdminOrdersCsv(params: Record<string, string | number | undefined> = {}) {
+  const response = await fetch(`/api/admin/proxy/api/v1/admin/orders/export.csv${paramsToQuery(params)}`, { cache: 'no-store' });
+  if (!response.ok) {
+    let details: unknown;
+    try {
+      details = await response.json();
+    } catch {
+      details = await response.text();
+    }
+    if ((response.status === 401 || response.status === 403) && typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('simeonshop:admin-auth-expired'));
+    }
+    throw new ApiError(`Admin CSV export failed with status ${response.status}`, response.status, details);
+  }
+  return response.blob();
+}
+
 export const updateAdminOrderStatus = (orderId: number, status: string) => adminFetch<Order>(`/orders/${orderId}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
 
 export type HealthResponse = { status: string; message: string; version: string; environment: string };

@@ -4,7 +4,7 @@
 
 import { Fragment, useCallback, useEffect, useState } from 'react';
 import type { Order } from '@/lib/api';
-import { ApiError, getAdminOrders, updateAdminOrderInternalNote, updateAdminOrderStatus } from '@/lib/api';
+import { ApiError, exportAdminOrdersCsv, getAdminOrders, updateAdminOrderInternalNote, updateAdminOrderStatus } from '@/lib/api';
 import { Price } from '../Price';
 
 const statuses = ['new', 'confirmed', 'packed', 'shipped', 'delivered', 'cancelled'] as const;
@@ -158,10 +158,13 @@ function OrderRow({ order, expanded, note, saving, onToggle, onNoteChange, onSav
 export function AdminOrdersPanel() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [filter, setFilter] = useState('');
+  const [dateFrom, setDateFrom] = useState('');
+  const [dateTo, setDateTo] = useState('');
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [notes, setNotes] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState<number | null>(null);
+  const [exporting, setExporting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -210,14 +213,53 @@ export function AdminOrdersPanel() {
     finally { setSavingId(null); }
   }
 
+
+  async function exportCsv() {
+    setExporting(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const blob = await exportAdminOrdersCsv({ status: filter, date_from: dateFrom, date_to: dateTo });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'orders-export.csv';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      setSuccess('CSV izvoz je spreman za preuzimanje.');
+    } catch (err) {
+      setError(getErrorMessage(err));
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
     <section className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-bold text-primary">Porudžbine</h2>
-        <select value={filter} onChange={(event) => setFilter(event.target.value)} className="border px-3 py-2">
-          <option value="">Svi statusi</option>
-          {statuses.map((status) => <option key={status} value={status}>{status}</option>)}
-        </select>
+        <div className="flex flex-wrap items-end gap-2">
+          <label className="text-xs font-medium text-slate-600">
+            Status
+            <select value={filter} onChange={(event) => setFilter(event.target.value)} className="mt-1 block border px-3 py-2 text-sm">
+              <option value="">Svi statusi</option>
+              {statuses.map((status) => <option key={status} value={status}>{status}</option>)}
+            </select>
+          </label>
+          <label className="text-xs font-medium text-slate-600">
+            Od
+            <input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} className="mt-1 block border px-3 py-2 text-sm" />
+          </label>
+          <label className="text-xs font-medium text-slate-600">
+            Do
+            <input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} className="mt-1 block border px-3 py-2 text-sm" />
+          </label>
+          <button type="button" disabled={exporting} onClick={() => void exportCsv()} className="bg-primary px-4 py-2 text-sm font-semibold text-white disabled:bg-slate-400">
+            {exporting ? 'Export...' : 'Export CSV'}
+          </button>
+        </div>
       </div>
       {loading && <div className="border border-slate-200 bg-white p-6">Učitavanje porudžbina...</div>}
       {error && <div className="rounded-lg bg-red-50 p-4 text-sm text-red-700">{error}</div>}

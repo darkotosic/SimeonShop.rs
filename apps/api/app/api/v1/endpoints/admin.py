@@ -1,7 +1,11 @@
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+import csv
+import io
+from datetime import date, datetime, time, timedelta, timezone
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Response, UploadFile, status
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.api.deps import get_current_admin, get_db
 from app.crud.category import create_category, get_categories, get_category_by_id, soft_delete_category, update_category
@@ -23,7 +27,7 @@ from app.models.product_variant import ProductVariant
 from app.models.store_setting import StoreSetting
 from app.models.user import User
 from app.schemas.category import CategoryCreate, CategoryRead, CategoryUpdate
-from app.schemas.order import OrderInternalNoteUpdate, OrderRead, OrderStatusUpdate
+from app.schemas.order import AdminSummaryRead, OrderInternalNoteUpdate, OrderRead, OrderStatusUpdate
 from app.schemas.product import (
     ProductCreate,
     ProductImageCreate,
@@ -65,13 +69,65 @@ def _get_product_variant_or_404(db: Session, product_id: int, variant_id: int) -
     return variant
 
 
-@router.get("/summary")
-def admin_summary(db: Session = Depends(get_db), current_admin: User = Depends(get_current_admin)):
+def _effective_stock(product: Product) -> int:
+    active_variants = [variant for variant in product.variants if variant.is_active]
+    if active_variants:
+        return sum(variant.stock_quantity for variant in active_variants)
+    return product.stock_quantity
+
+
+def _items_summary(order: Order) -> str:
+    rows: list[str] = []
+    for item in order.items:
+        label = item.product_name
+        if item.variant_label and item.variant_label not in label:
+            label = f"{label} / {item.variant_label}"
+        rows.append(f"{label} x {item.quantity}")
+    return "; ".join(rows)
+
+
+def _period_start(period_days: int) -> datetime:
+    days = max(min(period_days, 365), 1)
+    return datetime.now(timezone.utc) - timedelta(days=days)
+
+
+@router.get("/summary", response_model=AdminSummaryRead)
+def admin_summary(period_days: int = Query(default=30, ge=1, le=365), db: Session = Depends(get_db), current_admin: User = Depends(get_current_admin)):
+    period_start = _period_start(period_days)
+    period_orders = db.query(Order).filter(Order.created_at >= period_start).all()
+    delivered_orders = [order for order in period_orders if order.status == "delivered"]
+    active_products = db.query(Product).options(selectinload(Product.variants)).filter(Product.is_active.is_(True)).all()
+    low_stock_products = sorted(
+        [product for product in active_products if _effective_stock(product) <= 3],
+        key=lambda product: (_effective_stock(product), product.name.lower()),
+    )[:10]
+    total_revenue_cents = sum(order.total_cents for order in delivered_orders)
+    orders_count_period = len(period_orders)
+
     return {
-        "new_orders": db.query(func.count(Order.id)).filter(Order.status == "new").scalar() or 0,
-        "active_products": db.query(func.count(Product.id)).filter(Product.is_active.is_(True)).scalar() or 0,
-        "out_of_stock_products": db.query(func.count(Product.id)).filter(Product.is_active.is_(True), Product.stock_quantity <= 0).scalar() or 0,
+        "new_orders": sum(1 for order in period_orders if order.status == "new"),
+        "confirmed_orders": sum(1 for order in period_orders if order.status == "confirmed"),
+        "shipped_orders": sum(1 for order in period_orders if order.status == "shipped"),
+        "delivered_orders": len(delivered_orders),
+        "cancelled_orders": sum(1 for order in period_orders if order.status == "cancelled"),
+        "active_products": len(active_products),
+        "out_of_stock_products": sum(1 for product in active_products if _effective_stock(product) <= 0),
+        "total_revenue_cents": total_revenue_cents,
+        "orders_count_period": orders_count_period,
+        "average_order_value_cents": total_revenue_cents // len(delivered_orders) if delivered_orders else 0,
         "latest_orders": get_orders(db)[:5],
+        "low_stock_products": [
+            {
+                "id": product.id,
+                "name": product.name,
+                "slug": product.slug,
+                "sku": product.sku,
+                "stock_quantity": product.stock_quantity,
+                "variant_stock_quantity": sum(variant.stock_quantity for variant in product.variants if variant.is_active),
+                "effective_stock_quantity": _effective_stock(product),
+            }
+            for product in low_stock_products
+        ],
     }
 
 
@@ -251,6 +307,75 @@ def admin_delete_product_variant(
     deleted = delete_product_variant(db, variant)
     create_audit_log(db, current_admin.id, "delete", "product_variant", variant_id, {"product_id": product_id})
     return deleted
+
+
+@router.get("/orders/export.csv")
+def admin_export_orders_csv(
+    status: str | None = None,
+    date_from: date | None = None,
+    date_to: date | None = None,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(get_current_admin),
+):
+    query = db.query(Order).options(selectinload(Order.items))
+    if status:
+        query = query.filter(Order.status == status)
+    if date_from:
+        query = query.filter(Order.created_at >= datetime.combine(date_from, time.min, tzinfo=timezone.utc))
+    if date_to:
+        query = query.filter(Order.created_at <= datetime.combine(date_to, time.max, tzinfo=timezone.utc))
+
+    orders = query.order_by(Order.created_at.desc()).all()
+    output = io.StringIO()
+    writer = csv.DictWriter(output, fieldnames=[
+        "order_number",
+        "status",
+        "customer_name",
+        "customer_email",
+        "customer_phone",
+        "shipping_city",
+        "shipping_postal_code",
+        "shipping_address",
+        "total_cents",
+        "currency",
+        "payment_method",
+        "created_at",
+        "accepted_terms_at",
+        "source",
+        "internal_note",
+        "items_summary",
+    ])
+    writer.writeheader()
+    for order in orders:
+        writer.writerow({
+            "order_number": order.order_number,
+            "status": order.status,
+            "customer_name": order.customer_name,
+            "customer_email": order.customer_email or "",
+            "customer_phone": order.customer_phone,
+            "shipping_city": order.shipping_city,
+            "shipping_postal_code": order.shipping_postal_code,
+            "shipping_address": order.shipping_address,
+            "total_cents": order.total_cents,
+            "currency": order.currency,
+            "payment_method": order.payment_method,
+            "created_at": order.created_at.isoformat() if order.created_at else "",
+            "accepted_terms_at": order.accepted_terms_at.isoformat() if order.accepted_terms_at else "",
+            "source": order.source,
+            "internal_note": order.internal_note or "",
+            "items_summary": _items_summary(order),
+        })
+
+    create_audit_log(db, current_admin.id, "export", "order", metadata={
+        "status": status,
+        "date_from": date_from.isoformat() if date_from else None,
+        "date_to": date_to.isoformat() if date_to else None,
+    })
+    return Response(
+        content=output.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="orders-export.csv"'},
+    )
 
 
 @router.get("/orders", response_model=list[OrderRead])

@@ -118,3 +118,28 @@ class OrderRead(BaseModel):
     updated_at: datetime
     items: list[OrderItemRead]
     status_events: list[OrderStatusEventRead] = []
+
+
+class LowStockProductRead(BaseModel):
+    id: int
+    name: str
+    slug: str
+    sku: str | None = None
+    stock_quantity: int
+    variant_stock_quantity: int
+    effective_stock_quantity: int
+
+
+class AdminSummaryRead(BaseModel):
+    new_orders: int
+    confirmed_orders: int
+    shipped_orders: int
+    delivered_orders: int
+    cancelled_orders: int
+    active_products: int
+    out_of_stock_products: int
+    total_revenue_cents: int
+    orders_count_period: int
+    average_order_value_cents: int
+    latest_orders: list[OrderRead]
+    low_stock_products: list[LowStockProductRead]

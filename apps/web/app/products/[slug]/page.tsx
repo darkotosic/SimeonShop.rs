@@ -3,14 +3,23 @@ import { notFound } from 'next/navigation';
 import { ProductGallery, getProductImages } from '@/components/ProductGallery';
 import { ProductPurchaseBox } from '@/components/ProductPurchaseBox';
 import { ApiError, getProduct } from '@/lib/api';
+import { loadPublicStoreSettings } from '@/lib/store-settings';
 
-const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? 'http://localhost:3000';
+const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL ?? 'https://simeonshop.rs').replace(/\/$/, '');
+const fallbackLogoUrl = process.env.NEXT_PUBLIC_LOGO_URL;
+
+function absoluteUrl(url?: string | null): string | undefined {
+  if (!url) return undefined;
+  return url.startsWith('http://') || url.startsWith('https://') ? url : `${siteUrl}${url.startsWith('/') ? '' : '/'}${url}`;
+}
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   try {
-    const product = await getProduct(slug);
-    const image = getProductImages(product)[0]?.image_url;
+    const [product, settings] = await Promise.all([getProduct(slug), loadPublicStoreSettings()]);
+    const primaryImage = absoluteUrl(getProductImages(product)[0]?.image_url);
+    const fallbackImage = absoluteUrl(settings.logo_url) ?? absoluteUrl(fallbackLogoUrl);
+    const image = primaryImage ?? fallbackImage;
     return {
       title: product.seo_title ?? product.name,
       description: product.seo_description ?? product.short_description ?? product.description ?? undefined,
@@ -19,7 +28,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
         title: product.name,
         description: product.short_description ?? product.description ?? undefined,
         url: `${siteUrl}/products/${product.slug}`,
-        images: image ? [{ url: image, alt: product.name }] : undefined,
+        images: image ? [{ url: image, alt: primaryImage ? product.name : `${settings.company_name ?? 'Simeon Shop'} logo` }] : undefined,
       },
     };
   } catch {
@@ -38,21 +47,25 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
   }
 
   const images = getProductImages(product);
+  const imageUrls = images.map((image) => absoluteUrl(image.image_url)).filter((url): url is string => Boolean(url));
   const stock = product.effective_stock_quantity ?? product.stock_quantity;
+  const productUrl = `${siteUrl}/products/${product.slug}`;
   const productJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Product',
     name: product.name,
-    description: product.seo_description ?? product.short_description ?? product.description,
-    image: images.map((image) => image.image_url),
-    sku: product.sku ?? product.variants?.find((variant) => variant.sku)?.sku,
-    url: `${siteUrl}/products/${product.slug}`,
+    ...(product.seo_description || product.short_description || product.description
+      ? { description: product.seo_description ?? product.short_description ?? product.description }
+      : {}),
+    image: imageUrls,
+    sku: product.sku ?? product.variants?.find((variant) => variant.sku)?.sku ?? String(product.id),
+    url: productUrl,
     offers: {
       '@type': 'Offer',
-      priceCurrency: product.currency,
+      priceCurrency: 'RSD',
       price: (product.price_cents / 100).toFixed(2),
       availability: stock > 0 ? 'https://schema.org/InStock' : 'https://schema.org/OutOfStock',
-      url: `${siteUrl}/products/${product.slug}`,
+      url: productUrl,
     },
   };
 

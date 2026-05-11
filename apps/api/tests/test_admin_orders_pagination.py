@@ -120,3 +120,40 @@ def test_q_search_works_by_order_number(client, db):
     data = response.json()
     assert data["total"] == 1
     assert [item["order_number"] for item in data["items"]] == ["SIM-ABC-123"]
+
+
+def test_q_search_works_by_customer_email_phone_and_shipping_city(client, db):
+    _order(
+        db,
+        "SIM-SEARCH-EMAIL",
+        customer_email="ana.special@example.com",
+        customer_phone="+38160111111",
+        shipping_city="Beograd",
+    )
+    _order(
+        db,
+        "SIM-SEARCH-PHONE",
+        customer_email="marko@example.com",
+        customer_phone="+38164999888",
+        shipping_city="Novi Sad",
+    )
+    _order(
+        db,
+        "SIM-SEARCH-CITY",
+        customer_email="jelena@example.com",
+        customer_phone="+38160222222",
+        shipping_city="Subotica",
+    )
+
+    headers = _headers(db, email="orders-search-admin@example.com")
+
+    email_response = client.get("/api/v1/admin/orders?q=ana.special", headers=headers)
+    phone_response = client.get("/api/v1/admin/orders?q=999888", headers=headers)
+    city_response = client.get("/api/v1/admin/orders?q=Subotica", headers=headers)
+
+    assert email_response.status_code == 200, email_response.text
+    assert [item["order_number"] for item in email_response.json()["items"]] == ["SIM-SEARCH-EMAIL"]
+    assert phone_response.status_code == 200, phone_response.text
+    assert [item["order_number"] for item in phone_response.json()["items"]] == ["SIM-SEARCH-PHONE"]
+    assert city_response.status_code == 200, city_response.text
+    assert [item["order_number"] for item in city_response.json()["items"]] == ["SIM-SEARCH-CITY"]

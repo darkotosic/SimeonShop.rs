@@ -416,7 +416,7 @@ def admin_export_orders_csv(
         .all()
     )
     rows_count = len(orders)
-    truncated = date_from is None and date_to is None and total_matching > max_rows
+    truncated = total_matching > rows_count
 
     output = io.StringIO()
     writer = csv.DictWriter(output, fieldnames=[

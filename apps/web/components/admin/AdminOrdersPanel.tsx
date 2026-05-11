@@ -165,6 +165,7 @@ export function AdminOrdersPanel() {
   const [dateFrom, setDateFrom] = useState('');
   const [dateTo, setDateTo] = useState('');
   const [search, setSearch] = useState('');
+  const [searchInput, setSearchInput] = useState('');
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [notes, setNotes] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
@@ -178,6 +179,9 @@ export function AdminOrdersPanel() {
 
   const load = useCallback(async () => {
     if (dateRangeError) {
+      setOrders([]);
+      setTotal(0);
+      setPages(1);
       setLoading(false);
       return;
     }
@@ -198,6 +202,14 @@ export function AdminOrdersPanel() {
 
   useEffect(() => { void load(); }, [load]);
   useEffect(() => {
+    const timeout = window.setTimeout(() => {
+      setPage(1);
+      setExpandedId(null);
+      setSearch(searchInput);
+    }, 300);
+    return () => window.clearTimeout(timeout);
+  }, [searchInput]);
+  useEffect(() => {
     if (!success) return;
     const timeout = window.setTimeout(() => setSuccess(null), 4000);
     return () => window.clearTimeout(timeout);
@@ -207,6 +219,19 @@ export function AdminOrdersPanel() {
     setPage(1);
     setExpandedId(null);
     callback();
+  }
+
+  function resetFilters() {
+    setFilter('');
+    setDateFrom('');
+    setDateTo('');
+    setSearchInput('');
+    setSearch('');
+    setPage(1);
+    setPageSize(25);
+    setExpandedId(null);
+    setExportWarning(null);
+    setError(null);
   }
 
   async function saveNote(order: Order) {
@@ -255,7 +280,7 @@ export function AdminOrdersPanel() {
       window.URL.revokeObjectURL(url);
       setSuccess('CSV izvoz je spreman za preuzimanje.');
       if (result.truncated) {
-        setExportWarning(`Export je ograničen na prvih ${result.rows} redova. Koristite filter datuma za precizniji izvoz.`);
+        setExportWarning(`Export je ograničen na prvih ${result.rows} redova. Suzite status ili datumski filter za kompletan izvoz.`);
       }
     } catch (err) {
       setError(getErrorMessage(err));
@@ -271,7 +296,7 @@ export function AdminOrdersPanel() {
         <div className="flex flex-wrap items-end gap-2">
           <label className="text-xs font-medium text-slate-600">
             Pretraga
-            <input type="search" value={search} onChange={(event) => resetToFirstPage(() => setSearch(event.target.value))} placeholder="Broj, kupac, email..." className="mt-1 block border px-3 py-2 text-sm" />
+            <input type="search" value={searchInput} onChange={(event) => resetToFirstPage(() => setSearchInput(event.target.value))} placeholder="Broj, kupac, email..." className="mt-1 block border px-3 py-2 text-sm" />
           </label>
           <label className="text-xs font-medium text-slate-600">
             Status
@@ -294,6 +319,9 @@ export function AdminOrdersPanel() {
               {[10, 25, 50, 100].map((size) => <option key={size} value={size}>{size}</option>)}
             </select>
           </label>
+          <button type="button" onClick={resetFilters} className="border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700">
+            Resetuj filtere
+          </button>
           <button type="button" disabled={exporting || Boolean(dateRangeError)} onClick={() => void exportCsv()} className="bg-primary px-4 py-2 text-sm font-semibold text-white disabled:bg-slate-400">
             {exporting ? 'Export...' : 'Export CSV'}
           </button>
@@ -303,7 +331,7 @@ export function AdminOrdersPanel() {
         <span>Strana {page} od {pages} — ukupno {total} porudžbina</span>
         <div className="flex gap-2">
           <button type="button" disabled={loading || page <= 1} onClick={() => setPage((current) => Math.max(1, current - 1))} className="border px-3 py-1 disabled:text-slate-400">Prethodna</button>
-          <button type="button" disabled={loading || page >= pages} onClick={() => setPage((current) => current + 1)} className="border px-3 py-1 disabled:text-slate-400">Sledeća</button>
+          <button type="button" disabled={loading || page >= pages || orders.length === 0} onClick={() => setPage((current) => Math.min(pages, current + 1))} className="border px-3 py-1 disabled:text-slate-400">Sledeća</button>
         </div>
       </div>
       {loading && <div className="border border-slate-200 bg-white p-6">Učitavanje porudžbina...</div>}

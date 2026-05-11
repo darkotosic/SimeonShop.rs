@@ -10,10 +10,25 @@ function isMutation(method: string) {
   return !['GET', 'HEAD', 'OPTIONS'].includes(method.toUpperCase());
 }
 
+function addOrigin(origins: Set<string>, value?: string | null) {
+  if (!value) return;
+  value
+    .split(',')
+    .map((item) => item.trim().replace(/\/$/, ''))
+    .filter(Boolean)
+    .forEach((item) => origins.add(item));
+}
+
 function allowedAdminOrigins() {
   const origins = new Set<string>();
-  if (process.env.NEXT_PUBLIC_SITE_URL) origins.add(process.env.NEXT_PUBLIC_SITE_URL.replace(/\/$/, ''));
-  if (process.env.NODE_ENV !== 'production') origins.add('http://localhost:3000');
+  addOrigin(origins, process.env.ADMIN_ALLOWED_ORIGINS);
+  addOrigin(origins, process.env.NEXT_PUBLIC_SITE_URL);
+
+  if (process.env.NODE_ENV !== 'production') {
+    origins.add('http://localhost:3000');
+    origins.add('http://127.0.0.1:3000');
+  }
+
   return origins;
 }
 

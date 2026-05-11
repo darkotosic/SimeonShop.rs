@@ -57,6 +57,7 @@ Frontend required:
 - `API_BASE_URL`
 - `NEXT_PUBLIC_API_BASE_URL`
 - `NEXT_PUBLIC_SITE_URL=https://simeonshop.rs`
+- `ADMIN_ALLOWED_ORIGINS=https://simeonshop.rs,https://www.simeonshop.rs`
 
 ## Run migrations
 
@@ -87,16 +88,22 @@ alembic upgrade head
 3. Restartovati Render servis.
 4. Proveriti da bootstrap-admin endpoint više ne radi.
 
-## Admin proxy security
+## Admin proxy Origin check
 
-Admin API calls from the Next.js application go through `/api/admin/proxy/...` so the backend JWT stays in an httpOnly cookie instead of browser-accessible storage. Mutation methods (`POST`, `PATCH`, `PUT`, and `DELETE`) are additionally protected with an `Origin` check:
+Admin API calls from the Next.js application go through `/api/admin/proxy/...` so the backend JWT stays in an httpOnly cookie instead of browser-accessible storage. Mutation methods (`POST`, `PATCH`, `PUT`, and `DELETE`) are additionally protected with an `Origin` check.
 
-- Production allows only `NEXT_PUBLIC_SITE_URL` (for example, `https://simeonshop.rs`).
-- Development also allows `http://localhost:3000` to keep local admin tooling usable.
+Proveriti:
+
+- `NEXT_PUBLIC_SITE_URL` tačno pokazuje na produkcioni domen.
+- `ADMIN_ALLOWED_ORIGINS` uključuje `https://simeonshop.rs` i `https://www.simeonshop.rs` ako se koristi www domen.
+- www i non-www domen rade bez lažnih `403` grešaka za admin mutation requestove.
+- Admin create product radi.
+- Admin upload image radi preko proxy-ja.
+- Admin update order status radi.
 - Production mutation requests without an `Origin` header, or with a cross-site origin, return `403` with `detail="Invalid admin request origin."`.
-- `GET`, `HEAD`, and `OPTIONS` admin proxy requests are not blocked by this Origin hardening, so dashboard reads and CSV downloads continue to work normally.
+- Development allows `http://localhost:3000`, `http://127.0.0.1:3000`, and missing `Origin` headers for local tooling.
 
-Keep `NEXT_PUBLIC_SITE_URL` aligned with the deployed storefront domain before enabling production traffic. A CSRF token cookie/header can be layered on later if stricter double-submit protection is required.
+A CSRF token cookie/header can be layered on later if stricter double-submit protection is required.
 
 ## Verify an order
 

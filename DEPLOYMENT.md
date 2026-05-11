@@ -46,12 +46,20 @@ Configure these in Netlify Site settings. Do not hardcode the Render URL in `net
 API_BASE_URL=https://tvoj-render-backend.onrender.com
 NEXT_PUBLIC_API_BASE_URL=https://tvoj-render-backend.onrender.com
 NEXT_PUBLIC_SITE_URL=https://simeonshop.rs
+ADMIN_ALLOWED_ORIGINS=https://simeonshop.rs,https://www.simeonshop.rs
 NEXT_PUBLIC_BRAND_NAME=Simeon Shop
 NEXT_PUBLIC_DEFAULT_LOCALE=sr
 NEXT_PUBLIC_INSTAGRAM_URL=
 NEXT_PUBLIC_FACEBOOK_URL=
 NEXT_PUBLIC_CONTACT_EMAIL=
+NEXT_PUBLIC_CONTACT_PHONE=
 NEXT_PUBLIC_LOGO_URL=
+NEXT_PUBLIC_DELIVERY_NOTE=
+NEXT_PUBLIC_RETURN_POLICY_SHORT=
+NEXT_PUBLIC_COMPANY_NAME=
+NEXT_PUBLIC_COMPANY_ADDRESS=
+NEXT_PUBLIC_COMPANY_REGISTRATION_NUMBER=
+NEXT_PUBLIC_COMPANY_TAX_ID=
 ```
 
 Use the actual Render service URL for both `API_BASE_URL` and `NEXT_PUBLIC_API_BASE_URL`; Netlify must have both variables so server-side rendering/proxy calls and browser API calls target the same backend contract.
@@ -105,13 +113,13 @@ HOST=0.0.0.0
 PORT=8000
 ALLOWED_ORIGINS=https://simeonshop.rs,https://www.simeonshop.rs
 FRONTEND_URL=https://simeonshop.rs
-DATABASE_URL=postgresql://user:password@host/dbname
-JWT_SECRET=replace-with-a-long-random-secret
+DATABASE_URL=postgresql://...
+JWT_SECRET=dug-random-secret-minimum-32-karaktera
 JWT_ALGORITHM=HS256
 ACCESS_TOKEN_EXPIRE_MINUTES=480
 ADMIN_EMAIL=admin@simeonshop.rs
 ALLOW_PUBLIC_REGISTRATION=false
-BOOTSTRAP_ADMIN_TOKEN=temporary-bootstrap-token-remove-after-admin-create
+BOOTSTRAP_ADMIN_TOKEN=privremeno-samo-za-prvo-kreiranje-admina
 RATE_LIMIT_DEFAULT=120/minute
 RATE_LIMIT_AUTH=10/minute
 RATE_LIMIT_CHECKOUT=5/minute

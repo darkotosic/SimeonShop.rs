@@ -121,7 +121,7 @@ def test_export_max_rows_limit_headers_and_audit_metadata(client, db):
     assert metadata["truncated"] is True
 
 
-def test_export_max_rows_not_truncated_with_date_filter(client, db):
+def test_export_max_rows_truncated_with_date_filter(client, db):
     _order(db, "SIM-DATED-1")
     _order(db, "SIM-DATED-2")
     headers = _headers(db, email="export-dated-admin@example.com")
@@ -130,8 +130,27 @@ def test_export_max_rows_not_truncated_with_date_filter(client, db):
 
     assert response.status_code == 200, response.text
     assert response.headers["x-export-rows"] == "1"
-    assert response.headers["x-export-truncated"] == "false"
+    assert response.headers["x-export-truncated"] == "true"
     log = db.query(AuditLog).filter(AuditLog.action == "export", AuditLog.entity_type == "order").one()
     metadata = json.loads(log.metadata_json)
     assert metadata["max_rows"] == 1
+    assert metadata["truncated"] is True
+
+
+def test_export_not_truncated_when_all_matching_rows_returned(client, db):
+    _order(db, "SIM-FULL-1")
+    _order(db, "SIM-FULL-2")
+    headers = _headers(db, email="export-full-admin@example.com")
+
+    response = client.get("/api/v1/admin/orders/export.csv?max_rows=10", headers=headers)
+
+    assert response.status_code == 200, response.text
+    rows = list(csv.DictReader(io.StringIO(response.text.lstrip("\ufeff"))))
+    assert len(rows) == 2
+    assert response.headers["x-export-rows"] == "2"
+    assert response.headers["x-export-truncated"] == "false"
+    log = db.query(AuditLog).filter(AuditLog.action == "export", AuditLog.entity_type == "order").one()
+    metadata = json.loads(log.metadata_json)
+    assert metadata["rows_count"] == 2
+    assert metadata["max_rows"] == 10
     assert metadata["truncated"] is False

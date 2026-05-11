@@ -27,6 +27,9 @@
 - [ ] Admin login works.
 - [ ] Admin CRUD for products, categories, images, variants, settings, and orders works.
 - [ ] Admin image upload works through the protected proxy without breaking multipart bodies.
+- [ ] ADMIN_ALLOWED_ORIGINS uključuje https://simeonshop.rs.
+- [ ] ADMIN_ALLOWED_ORIGINS uključuje https://www.simeonshop.rs.
+- [ ] admin mutation requestovi ne vraćaju 403 na produkcionom domenu.
 
 ## Order lifecycle
 
